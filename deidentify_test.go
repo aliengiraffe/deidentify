@@ -418,7 +418,10 @@ func BenchmarkTableDeidentification(b *testing.B) {
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		d.DeidentifyTable(table)
+		_, err := d.DeidentifyTable(table)
+		if err != nil {
+			b.Fatalf("DeidentifyTable failed: %v", err)
+		}
 	}
 }
 
@@ -431,6 +434,9 @@ Please process his payment using credit card 4111-1111-1111-1111.`
 	
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		d.DeidentifyText(text)
+		_, err := d.DeidentifyText(text)
+		if err != nil {
+			b.Fatalf("DeidentifyText failed: %v", err)
+		}
 	}
 }
