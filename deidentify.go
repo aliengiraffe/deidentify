@@ -256,7 +256,7 @@ func (d *Deidentifier) generateEmail(original string) string {
 // generatePhone creates a deterministic fake phone number preserving format
 func (d *Deidentifier) generatePhone(original string) string {
 	// Extract format and components
-	phoneRegex := regexp.MustCompile(`^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})[\s.-]?(\d{4})`)
+	phoneRegex := regexp.MustCompile(`^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`)
 	matches := phoneRegex.FindStringSubmatch(original)
 	
 	if len(matches) == 0 {
@@ -264,29 +264,21 @@ func (d *Deidentifier) generatePhone(original string) string {
 		return d.generateGeneric(original)
 	}
 	
-	prefix := matches[1]
-	openParen := matches[2]
-	areaCode := matches[3] // Keep area code
-	separator1 := matches[4]
-	_ = matches[5] // exchange - will be replaced
-	_ = matches[6] // number - will be replaced
+	prefix := matches[1]         // +1 or country code (preserve)
+	openParen := matches[2]      // ( or empty (preserve)
+	areaCode := matches[3]       // 3 digits area code (preserve)
+	afterAreaCode := matches[4]  // ) or . or - or space or empty (preserve)
+	_ = matches[5]               // exchange - will be replaced
+	separator := matches[6]      // . or - or space (preserve)
+	_ = matches[7]               // last 4 digits - will be replaced
 	
 	hash := d.deterministicHash(original)
 	exchange := 200 + d.hashToIndex(hash[:8], 799) // Valid exchange range
 	number := 1000 + d.hashToIndex(hash[8:16], 8999) // Valid number range
 	
-	closeParen := ""
-	if openParen == "(" {
-		closeParen = ")"
-	}
-	
-	separator2 := separator1
-	if separator1 == ")" {
-		separator2 = "-"
-	}
-	
-	return fmt.Sprintf("%s%s%s%s%s%03d%s%04d", 
-		prefix, openParen, areaCode, closeParen, separator1, exchange, separator2, number)
+	// Create proper formatting
+	return fmt.Sprintf("%s%s%s%s%03d%s%04d", 
+		prefix, openParen, areaCode, afterAreaCode, exchange, separator, number)
 }
 
 // generateSSN creates a deterministic fake SSN with valid format
