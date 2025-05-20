@@ -145,6 +145,18 @@ While this library aims to detect common PII patterns, no automated system can g
 
 Note: By default, the library preserves area codes in phone numbers for better usability, as they often indicate geographic regions rather than individuals. Consider your specific requirements when implementing.
 
+## Data Variety
+
+The library provides rich anonymization with:
+
+- 110+ gender-neutral first names
+- 130+ diverse last names
+- 105+ fictional email domains
+- 100+ email username patterns
+- 100+ street name variations
+
+This extensive variety of replacement options enhances privacy by increasing the anonymization space and reducing the likelihood of pattern recognition.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

@@ -71,6 +71,20 @@ Legolas`
 	}
 	fmt.Printf("SSN: %s → %s\n", ssn, redactedSSN)
 	
+	address := "15 Woodland Realm, Mirkwood Forest"
+	redactedAddress, err := d.DeidentifyAddress(address)
+	if err != nil {
+		log.Fatal("Failed to deidentify address:", err)
+	}
+	fmt.Printf("Address: %s → %s\n", address, redactedAddress)
+	
+	name := "Legolas Greenleaf"
+	redactedName, err := d.DeidentifyName(name)
+	if err != nil {
+		log.Fatal("Failed to deidentify name:", err)
+	}
+	fmt.Printf("Name: %s → %s\n", name, redactedName)
+	
 	// Demonstrating consistency - same input produces same output
 	fmt.Println("\nConsistency demonstration:")
 	fmt.Println("--------------------------------------")
@@ -78,4 +92,32 @@ Legolas`
 	redactedAgain, _ := d.DeidentifyEmail(anotherEmail)
 	fmt.Printf("Same input produces same output: %v\n", 
 		redactedEmail == redactedAgain)
+		
+	// Demonstrate the variety of generated values
+	fmt.Println("\nDemonstrating data variety:")
+	fmt.Println("--------------------------------------")
+	
+	// Create another deidentifier with a different key
+	d2 := deidentify.NewDeidentifier("different-secret-key")
+	
+	fmt.Println("Names:")
+	for i := 0; i < 5; i++ {
+		sampleName := fmt.Sprintf("Sample Person %d", i)
+		redacted, _ := d2.DeidentifyName(sampleName)
+		fmt.Printf("  %s → %s\n", sampleName, redacted)
+	}
+	
+	fmt.Println("\nEmails:")
+	for i := 0; i < 5; i++ {
+		sampleEmail := fmt.Sprintf("person%d@example.com", i)
+		redacted, _ := d2.DeidentifyEmail(sampleEmail)
+		fmt.Printf("  %s → %s\n", sampleEmail, redacted)
+	}
+	
+	fmt.Println("\nAddresses:")
+	for i := 0; i < 5; i++ {
+		sampleAddress := fmt.Sprintf("%d Example Street", 100+i)
+		redacted, _ := d2.DeidentifyAddress(sampleAddress)
+		fmt.Printf("  %s → %s\n", sampleAddress, redacted)
+	}
 }
