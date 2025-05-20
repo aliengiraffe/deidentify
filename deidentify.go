@@ -24,6 +24,20 @@ const (
 	TypeGeneric
 )
 
+var (
+	// Regular expression patterns for finding PII
+	emailRegexPattern        = `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
+	phoneRegexPattern        = `(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`
+	ssnRegexPattern          = `\d{3}[-]?\d{2}[-]?\d{4}`
+	hyphenRegexPattern       = `-`
+	ssnContextRegexPattern   = `(?i)SSN|social security`
+	creditCardRegexPattern   = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
+	nameRegexPattern         = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
+	addressWordRegexPattern  = `(?i)Street|Avenue|Road|Lane|The `
+	addressRegexPattern      = `\d+\s+[A-Za-z]+ (Street|Avenue|Road|Drive|Lane|Place|Blvd|Boulevard)`
+	phoneFormatRegexPattern  = `^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`
+)
+
 type Column struct {
 	Name     string
 	DataType DataType
@@ -58,7 +72,7 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	result := text
 
 	// Process emails
-	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	emailRegex := regexp.MustCompile(emailRegexPattern)
 	result = emailRegex.ReplaceAllStringFunc(result, func(email string) string {
 		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
 		if err != nil {
@@ -68,7 +82,7 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	})
 
 	// Process phone numbers
-	phoneRegex := regexp.MustCompile(`(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`)
+	phoneRegex := regexp.MustCompile(phoneRegexPattern)
 	result = phoneRegex.ReplaceAllStringFunc(result, func(phone string) string {
 		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
 		if err != nil {
@@ -78,11 +92,13 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	})
 
 	// Process SSNs
-	ssnRegex := regexp.MustCompile(`\d{3}[-]?\d{2}[-]?\d{4}`)
+	ssnRegex := regexp.MustCompile(ssnRegexPattern)
 	result = ssnRegex.ReplaceAllStringFunc(result, func(ssn string) string {
 		// Verify it's likely an SSN, not just any 9 digits
-		if !regexp.MustCompile(`-`).MatchString(ssn) && 
-		   !regexp.MustCompile(`(?i)SSN|social security`).MatchString(text) {
+		hyphenRegex := regexp.MustCompile(hyphenRegexPattern)
+		ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
+		
+		if !hyphenRegex.MatchString(ssn) && !ssnContextRegex.MatchString(text) {
 			// If no hyphens and not mentioned as SSN, might be something else - check surrounding text
 			if len(ssn) == 9 {
 				// Assume it's an SSN if it's exactly 9 digits
@@ -103,7 +119,7 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	})
 
 	// Process credit cards
-	ccRegex := regexp.MustCompile(`\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`)
+	ccRegex := regexp.MustCompile(creditCardRegexPattern)
 	result = ccRegex.ReplaceAllStringFunc(result, func(cc string) string {
 		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 		if err != nil {
@@ -114,10 +130,11 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 
 	// Process names (more complex, less precise)
 	// This is a simplistic approach - production systems would use NER models
-	nameRegex := regexp.MustCompile(`\b[A-Z][a-z]+ [A-Z][a-z]+\b`)
+	nameRegex := regexp.MustCompile(nameRegexPattern)
 	result = nameRegex.ReplaceAllStringFunc(result, func(name string) string {
 		// Skip if it looks like an address or contains common words
-		if regexp.MustCompile(`(?i)Street|Avenue|Road|Lane|The `).MatchString(name) {
+		addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
+		if addressWordRegex.MatchString(name) {
 			return name
 		}
 		deidentified, err := d.deidentifyValue(name, TypeName, "name")
@@ -128,7 +145,7 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	})
 
 	// Process addresses (simplified approach)
-	addrRegex := regexp.MustCompile(`\d+\s+[A-Za-z]+ (Street|Avenue|Road|Drive|Lane|Place|Blvd|Boulevard)`)
+	addrRegex := regexp.MustCompile(addressRegexPattern)
 	result = addrRegex.ReplaceAllStringFunc(result, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
 		if err != nil {
@@ -153,6 +170,21 @@ func (d *Deidentifier) DeidentifyPhone(phone string) (string, error) {
 // DeidentifySSN is a convenience method to deidentify a single SSN
 func (d *Deidentifier) DeidentifySSN(ssn string) (string, error) {
 	return d.deidentifyValue(ssn, TypeSSN, "ssn")
+}
+
+// DeidentifyName is a convenience method to deidentify a single name
+func (d *Deidentifier) DeidentifyName(name string) (string, error) {
+	return d.deidentifyValue(name, TypeName, "name")
+}
+
+// DeidentifyAddress is a convenience method to deidentify a single address
+func (d *Deidentifier) DeidentifyAddress(address string) (string, error) {
+	return d.deidentifyValue(address, TypeAddress, "address")
+}
+
+// DeidentifyCreditCard is a convenience method to deidentify a single credit card number
+func (d *Deidentifier) DeidentifyCreditCard(cc string) (string, error) {
+	return d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 }
 
 // DeidentifyTable processes an entire table
@@ -230,33 +262,27 @@ func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnNa
 
 // generateName creates a deterministic fake name
 func (d *Deidentifier) generateName(original string) string {
-	firstNames := []string{"Alex", "Jordan", "Taylor", "Casey", "Morgan", "Riley", "Avery", "Quinn", "Sage", "Blake"}
-	lastNames := []string{"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"}
-	
 	hash := d.deterministicHash(original)
-	firstIdx := d.hashToIndex(hash[:8], len(firstNames))
-	lastIdx := d.hashToIndex(hash[8:16], len(lastNames))
+	firstIdx := d.hashToIndex(hash[:8], len(firstNameOptions))
+	lastIdx := d.hashToIndex(hash[8:16], len(lastNameOptions))
 	
-	return fmt.Sprintf("%s %s", firstNames[firstIdx], lastNames[lastIdx])
+	return fmt.Sprintf("%s %s", firstNameOptions[firstIdx], lastNameOptions[lastIdx])
 }
 
 // generateEmail creates a deterministic fake email
 func (d *Deidentifier) generateEmail(original string) string {
-	domains := []string{"example.com", "testmail.org", "sample.net", "demo.co", "placeholder.io"}
-	usernames := []string{"user", "test", "demo", "sample", "client", "member", "account", "profile"}
-	
 	hash := d.deterministicHash(original)
-	userIdx := d.hashToIndex(hash[:8], len(usernames))
-	domainIdx := d.hashToIndex(hash[8:16], len(domains))
+	userIdx := d.hashToIndex(hash[:8], len(emailUsernameOptions))
+	domainIdx := d.hashToIndex(hash[8:16], len(emailDomainOptions))
 	suffix := d.hashToIndex(hash[16:24], 9999)
 	
-	return fmt.Sprintf("%s%d@%s", usernames[userIdx], suffix, domains[domainIdx])
+	return fmt.Sprintf("%s%d@%s", emailUsernameOptions[userIdx], suffix, emailDomainOptions[domainIdx])
 }
 
 // generatePhone creates a deterministic fake phone number preserving format
 func (d *Deidentifier) generatePhone(original string) string {
 	// Extract format and components
-	phoneRegex := regexp.MustCompile(`^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`)
+	phoneRegex := regexp.MustCompile(phoneFormatRegexPattern)
 	matches := phoneRegex.FindStringSubmatch(original)
 	
 	if len(matches) == 0 {
@@ -327,13 +353,11 @@ func (d *Deidentifier) generateCreditCard(original string) string {
 
 // generateAddress creates a deterministic fake address
 func (d *Deidentifier) generateAddress(original string) string {
-	streets := []string{"Main St", "Oak Ave", "Pine Rd", "Elm Way", "Park Blvd", "First St", "Second Ave", "Third Rd"}
-	
 	hash := d.deterministicHash(original)
 	number := 1 + d.hashToIndex(hash[:8], 9999)
-	streetIdx := d.hashToIndex(hash[8:16], len(streets))
+	streetIdx := d.hashToIndex(hash[8:16], len(streetNameOptions))
 	
-	return fmt.Sprintf("%d %s", number, streets[streetIdx])
+	return fmt.Sprintf("%d %s", number, streetNameOptions[streetIdx])
 }
 
 // generateGeneric creates a deterministic replacement for generic data
