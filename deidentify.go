@@ -1,0 +1,323 @@
+package deidentify
+
+import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"regexp"
+	"strconv"
+	"sync"
+)
+
+type DataType int
+
+const (
+	TypeName DataType = iota
+	TypeEmail
+	TypePhone
+	TypeSSN
+	TypeCreditCard
+	TypeAddress
+	TypeGeneric
+)
+
+type Column struct {
+	Name     string
+	DataType DataType
+	Values   []interface{}
+}
+
+type Table struct {
+	Columns []Column
+}
+
+type Deidentifier struct {
+	secretKey     []byte
+	mappingTables map[string]map[string]string
+	mutex         sync.RWMutex
+}
+
+// NewDeidentifier creates a new deidentifier with a secret key
+func NewDeidentifier(secretKey string) *Deidentifier {
+	return &Deidentifier{
+		secretKey:     []byte(secretKey),
+		mappingTables: make(map[string]map[string]string),
+	}
+}
+
+// DeidentifyTable processes an entire table
+func (d *Deidentifier) DeidentifyTable(table *Table) (*Table, error) {
+	result := &Table{
+		Columns: make([]Column, len(table.Columns)),
+	}
+
+	for i, col := range table.Columns {
+		deidentifiedValues := make([]interface{}, len(col.Values))
+		
+		for j, value := range col.Values {
+			if value == nil {
+				deidentifiedValues[j] = nil
+				continue
+			}
+			
+			strValue := fmt.Sprintf("%v", value)
+			deidentifiedValue, err := d.deidentifyValue(strValue, col.DataType, col.Name)
+			if err != nil {
+				return nil, fmt.Errorf("error deidentifying column %s, row %d: %w", col.Name, j, err)
+			}
+			deidentifiedValues[j] = deidentifiedValue
+		}
+		
+		result.Columns[i] = Column{
+			Name:     col.Name,
+			DataType: col.DataType,
+			Values:   deidentifiedValues,
+		}
+	}
+
+	return result, nil
+}
+
+// deidentifyValue handles individual value deidentification
+func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnName string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+
+	// Check for existing mapping first for deterministic results
+	if mapped := d.getMapping(columnName, value); mapped != "" {
+		return mapped, nil
+	}
+
+	var result string
+	var err error
+
+	switch dataType {
+	case TypeName:
+		result = d.generateName(value)
+	case TypeEmail:
+		result = d.generateEmail(value)
+	case TypePhone:
+		result = d.generatePhone(value)
+	case TypeSSN:
+		result = d.generateSSN(value)
+	case TypeCreditCard:
+		result = d.generateCreditCard(value)
+	case TypeAddress:
+		result = d.generateAddress(value)
+	default:
+		result = d.generateGeneric(value)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Store mapping for consistency
+	d.setMapping(columnName, value, result)
+	return result, nil
+}
+
+// generateName creates a deterministic fake name
+func (d *Deidentifier) generateName(original string) string {
+	firstNames := []string{"Alex", "Jordan", "Taylor", "Casey", "Morgan", "Riley", "Avery", "Quinn", "Sage", "Blake"}
+	lastNames := []string{"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"}
+	
+	hash := d.deterministicHash(original)
+	firstIdx := d.hashToIndex(hash[:8], len(firstNames))
+	lastIdx := d.hashToIndex(hash[8:16], len(lastNames))
+	
+	return fmt.Sprintf("%s %s", firstNames[firstIdx], lastNames[lastIdx])
+}
+
+// generateEmail creates a deterministic fake email
+func (d *Deidentifier) generateEmail(original string) string {
+	domains := []string{"example.com", "testmail.org", "sample.net", "demo.co", "placeholder.io"}
+	usernames := []string{"user", "test", "demo", "sample", "client", "member", "account", "profile"}
+	
+	hash := d.deterministicHash(original)
+	userIdx := d.hashToIndex(hash[:8], len(usernames))
+	domainIdx := d.hashToIndex(hash[8:16], len(domains))
+	suffix := d.hashToIndex(hash[16:24], 9999)
+	
+	return fmt.Sprintf("%s%d@%s", usernames[userIdx], suffix, domains[domainIdx])
+}
+
+// generatePhone creates a deterministic fake phone number preserving format
+func (d *Deidentifier) generatePhone(original string) string {
+	// Extract format and components
+	phoneRegex := regexp.MustCompile(`^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})[\s.-]?(\d{4})`)
+	matches := phoneRegex.FindStringSubmatch(original)
+	
+	if len(matches) == 0 {
+		// Fallback for non-standard formats
+		return d.generateGeneric(original)
+	}
+	
+	prefix := matches[1]
+	openParen := matches[2]
+	areaCode := matches[3] // Keep area code
+	separator1 := matches[4]
+	_ = matches[5] // exchange - will be replaced
+	_ = matches[6] // number - will be replaced
+	
+	hash := d.deterministicHash(original)
+	exchange := 200 + d.hashToIndex(hash[:8], 799) // Valid exchange range
+	number := 1000 + d.hashToIndex(hash[8:16], 8999) // Valid number range
+	
+	closeParen := ""
+	if openParen == "(" {
+		closeParen = ")"
+	}
+	
+	separator2 := separator1
+	if separator1 == ")" {
+		separator2 = "-"
+	}
+	
+	return fmt.Sprintf("%s%s%s%s%s%03d%s%04d", 
+		prefix, openParen, areaCode, closeParen, separator1, exchange, separator2, number)
+}
+
+// generateSSN creates a deterministic fake SSN with valid format
+func (d *Deidentifier) generateSSN(original string) string {
+	hash := d.deterministicHash(original)
+	
+	// Avoid invalid SSN patterns (666, 900-999 area numbers)
+	area := 100 + d.hashToIndex(hash[:8], 565) // 100-665
+	if area == 666 {
+		area = 667
+	}
+	
+	group := 1 + d.hashToIndex(hash[8:16], 99)   // 01-99
+	serial := 1 + d.hashToIndex(hash[16:24], 9999) // 0001-9999
+	
+	return fmt.Sprintf("%03d-%02d-%04d", area, group, serial)
+}
+
+// generateCreditCard creates a deterministic fake credit card with valid Luhn checksum
+func (d *Deidentifier) generateCreditCard(original string) string {
+	// Use test card prefixes (4000 for Visa test cards)
+	hash := d.deterministicHash(original)
+	
+	// Generate 15 digits (4000 + 11 more digits)
+	cardNumber := "4000"
+	for i := 0; i < 11; i++ {
+		digit := d.hashToIndex(hash[i*2:i*2+2], 10)
+		cardNumber += strconv.Itoa(digit)
+	}
+	
+	// Calculate and append Luhn checksum
+	checkDigit := d.calculateLuhnCheckDigit(cardNumber)
+	cardNumber += strconv.Itoa(checkDigit)
+	
+	// Format with spaces every 4 digits
+	formatted := ""
+	for i, char := range cardNumber {
+		if i > 0 && i%4 == 0 {
+			formatted += " "
+		}
+		formatted += string(char)
+	}
+	
+	return formatted
+}
+
+// generateAddress creates a deterministic fake address
+func (d *Deidentifier) generateAddress(original string) string {
+	streets := []string{"Main St", "Oak Ave", "Pine Rd", "Elm Way", "Park Blvd", "First St", "Second Ave", "Third Rd"}
+	
+	hash := d.deterministicHash(original)
+	number := 1 + d.hashToIndex(hash[:8], 9999)
+	streetIdx := d.hashToIndex(hash[8:16], len(streets))
+	
+	return fmt.Sprintf("%d %s", number, streets[streetIdx])
+}
+
+// generateGeneric creates a deterministic replacement for generic data
+func (d *Deidentifier) generateGeneric(original string) string {
+	hash := d.deterministicHash(original)
+	return fmt.Sprintf("DATA_%s", hex.EncodeToString(hash[:8]))
+}
+
+// deterministicHash creates a consistent hash using HMAC
+func (d *Deidentifier) deterministicHash(input string) []byte {
+	h := hmac.New(sha256.New, d.secretKey)
+	h.Write([]byte(input))
+	return h.Sum(nil)
+}
+
+// hashToIndex converts hash bytes to an index within range
+func (d *Deidentifier) hashToIndex(hashBytes []byte, max int) int {
+	if len(hashBytes) == 0 || max <= 0 {
+		return 0
+	}
+	
+	// Convert bytes to big int and mod by max
+	bigInt := new(big.Int).SetBytes(hashBytes)
+	return int(bigInt.Mod(bigInt, big.NewInt(int64(max))).Int64())
+}
+
+// calculateLuhnCheckDigit calculates the Luhn checksum digit
+func (d *Deidentifier) calculateLuhnCheckDigit(cardNumber string) int {
+	sum := 0
+	alternate := true
+	
+	// Process digits from right to left (excluding check digit position)
+	for i := len(cardNumber) - 1; i >= 0; i-- {
+		digit, _ := strconv.Atoi(string(cardNumber[i]))
+		
+		if alternate {
+			digit *= 2
+			if digit > 9 {
+				digit = digit/10 + digit%10
+			}
+		}
+		
+		sum += digit
+		alternate = !alternate
+	}
+	
+	return (10 - (sum % 10)) % 10
+}
+
+// Mapping table functions for consistency
+func (d *Deidentifier) getMapping(columnName, original string) string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+	
+	if columnMap, exists := d.mappingTables[columnName]; exists {
+		return columnMap[original]
+	}
+	return ""
+}
+
+func (d *Deidentifier) setMapping(columnName, original, replacement string) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	
+	if d.mappingTables[columnName] == nil {
+		d.mappingTables[columnName] = make(map[string]string)
+	}
+	d.mappingTables[columnName][original] = replacement
+}
+
+// ClearMappings clears all stored mappings (useful for testing)
+func (d *Deidentifier) ClearMappings() {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.mappingTables = make(map[string]map[string]string)
+}
+
+// GenerateSecretKey generates a cryptographically secure random key
+func GenerateSecretKey() (string, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(key), nil
+}
