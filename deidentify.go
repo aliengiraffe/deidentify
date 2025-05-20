@@ -48,6 +48,113 @@ func NewDeidentifier(secretKey string) *Deidentifier {
 	}
 }
 
+// DeidentifyText identifies and deidentifies PII from a text string
+func (d *Deidentifier) DeidentifyText(text string) (string, error) {
+	if text == "" {
+		return "", nil
+	}
+
+	// Replace all PII types using regex patterns
+	result := text
+
+	// Process emails
+	emailRegex := regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+	result = emailRegex.ReplaceAllStringFunc(result, func(email string) string {
+		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
+		if err != nil {
+			return "[EMAIL REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	// Process phone numbers
+	phoneRegex := regexp.MustCompile(`(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`)
+	result = phoneRegex.ReplaceAllStringFunc(result, func(phone string) string {
+		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
+		if err != nil {
+			return "[PHONE REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	// Process SSNs
+	ssnRegex := regexp.MustCompile(`\d{3}[-]?\d{2}[-]?\d{4}`)
+	result = ssnRegex.ReplaceAllStringFunc(result, func(ssn string) string {
+		// Verify it's likely an SSN, not just any 9 digits
+		if !regexp.MustCompile(`-`).MatchString(ssn) && 
+		   !regexp.MustCompile(`(?i)SSN|social security`).MatchString(text) {
+			// If no hyphens and not mentioned as SSN, might be something else - check surrounding text
+			if len(ssn) == 9 {
+				// Assume it's an SSN if it's exactly 9 digits
+				deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
+				if err != nil {
+					return "[SSN REDACTION ERROR]"
+				}
+				return deidentified
+			}
+			return ssn
+		}
+		
+		deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
+		if err != nil {
+			return "[SSN REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	// Process credit cards
+	ccRegex := regexp.MustCompile(`\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`)
+	result = ccRegex.ReplaceAllStringFunc(result, func(cc string) string {
+		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
+		if err != nil {
+			return "[CC REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	// Process names (more complex, less precise)
+	// This is a simplistic approach - production systems would use NER models
+	nameRegex := regexp.MustCompile(`\b[A-Z][a-z]+ [A-Z][a-z]+\b`)
+	result = nameRegex.ReplaceAllStringFunc(result, func(name string) string {
+		// Skip if it looks like an address or contains common words
+		if regexp.MustCompile(`(?i)Street|Avenue|Road|Lane|The `).MatchString(name) {
+			return name
+		}
+		deidentified, err := d.deidentifyValue(name, TypeName, "name")
+		if err != nil {
+			return "[NAME REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	// Process addresses (simplified approach)
+	addrRegex := regexp.MustCompile(`\d+\s+[A-Za-z]+ (Street|Avenue|Road|Drive|Lane|Place|Blvd|Boulevard)`)
+	result = addrRegex.ReplaceAllStringFunc(result, func(addr string) string {
+		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
+		if err != nil {
+			return "[ADDRESS REDACTION ERROR]"
+		}
+		return deidentified
+	})
+
+	return result, nil
+}
+
+// DeidentifyEmail is a convenience method to deidentify a single email
+func (d *Deidentifier) DeidentifyEmail(email string) (string, error) {
+	return d.deidentifyValue(email, TypeEmail, "email")
+}
+
+// DeidentifyPhone is a convenience method to deidentify a single phone number
+func (d *Deidentifier) DeidentifyPhone(phone string) (string, error) {
+	return d.deidentifyValue(phone, TypePhone, "phone")
+}
+
+// DeidentifySSN is a convenience method to deidentify a single SSN
+func (d *Deidentifier) DeidentifySSN(ssn string) (string, error) {
+	return d.deidentifyValue(ssn, TypeSSN, "ssn")
+}
+
 // DeidentifyTable processes an entire table
 func (d *Deidentifier) DeidentifyTable(table *Table) (*Table, error) {
 	result := &Table{

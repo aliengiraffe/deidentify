@@ -249,6 +249,123 @@ func TestSecretKeyGeneration(t *testing.T) {
 	}
 }
 
+func TestDeidentifyText(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	
+	testCases := []struct {
+		name     string
+		input    string
+		patterns []string // Patterns to verify in the output
+	}{
+		{
+			name: "Empty input",
+			input: "",
+			patterns: []string{},
+		},
+		{
+			name: "Email detection",
+			input: "Contact me at john.doe@example.com for more information",
+			patterns: []string{
+				`Contact me at .+@.+ for more information`,
+			},
+		},
+		{
+			name: "Phone detection",
+			input: "Call me at (555) 123-4567 or 555-987-6543",
+			patterns: []string{
+				`Call me at \(.+\) .+-.+ or .+-.+-.+`,
+			},
+		},
+		{
+			name: "SSN detection",
+			input: "My SSN is 123-45-6789 and my friend's is 987654321",
+			patterns: []string{
+				`My SSN is \d{3}-\d{2}-\d{4} and my friend's is \d{3}-\d{2}-\d{4}`,
+			},
+		},
+		{
+			name: "Multiple PII types",
+			input: "John Smith (john.smith@example.com) lives at 123 Oak Avenue.",
+			patterns: []string{
+				`.+ \(.+@.+\) lives at \d+ .+\.`,
+			},
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := d.DeidentifyText(tc.input)
+			if err != nil {
+				t.Fatalf("DeidentifyText() error = %v", err)
+			}
+			
+			// For empty input, check that output is empty
+			if tc.input == "" {
+				if result != "" {
+					t.Errorf("DeidentifyText() didn't return empty string for empty input, got %q", result)
+				}
+				return
+			}
+			
+			// Result should be different from input if input contains PII
+			if result == tc.input && len(tc.patterns) > 0 {
+				t.Errorf("DeidentifyText() returned unchanged text: %s", result)
+			}
+			
+			// Check that the result matches expected patterns
+			for _, pattern := range tc.patterns {
+				matched, err := regexp.MatchString(pattern, result)
+				if err != nil {
+					t.Fatalf("Failed to match pattern: %v", err)
+				}
+				if !matched {
+					t.Errorf("DeidentifyText() result doesn't match pattern\nPattern: %s\nResult:  %s", pattern, result)
+				}
+			}
+		})
+	}
+}
+
+func TestConvenienceMethods(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	
+	// Test DeidentifyEmail
+	email := "test@example.com"
+	emailResult, err := d.DeidentifyEmail(email)
+	if err != nil {
+		t.Fatalf("DeidentifyEmail failed: %v", err)
+	}
+	if emailResult == email {
+		t.Errorf("DeidentifyEmail should produce different result, got: %s", emailResult)
+	}
+	if !strings.Contains(emailResult, "@") {
+		t.Errorf("DeidentifyEmail result doesn't look like an email: %s", emailResult)
+	}
+	
+	// Test DeidentifyPhone
+	phone := "(555) 123-4567"
+	phoneResult, err := d.DeidentifyPhone(phone)
+	if err != nil {
+		t.Fatalf("DeidentifyPhone failed: %v", err)
+	}
+	if phoneResult == phone {
+		t.Errorf("DeidentifyPhone should produce different result, got: %s", phoneResult)
+	}
+	
+	// Test DeidentifySSN
+	ssn := "123-45-6789"
+	ssnResult, err := d.DeidentifySSN(ssn)
+	if err != nil {
+		t.Fatalf("DeidentifySSN failed: %v", err)
+	}
+	if ssnResult == ssn {
+		t.Errorf("DeidentifySSN should produce different result, got: %s", ssnResult)
+	}
+	if !regexp.MustCompile(`\d{3}-\d{2}-\d{4}`).MatchString(ssnResult) {
+		t.Errorf("DeidentifySSN result doesn't match SSN format: %s", ssnResult)
+	}
+}
+
 // Helper function to validate Luhn checksum
 func isValidLuhn(cardNumber string) bool {
 	sum := 0
@@ -299,5 +416,18 @@ func BenchmarkTableDeidentification(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		d.DeidentifyTable(table)
+	}
+}
+
+func BenchmarkTextDeidentification(b *testing.B) {
+	d := NewDeidentifier("benchmark-key")
+	
+	text := `Contact John Smith at john.smith@example.com or (555) 123-4567.
+His SSN is 123-45-6789 and he lives at 123 Main Street in New York.
+Please process his payment using credit card 4111-1111-1111-1111.`
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		d.DeidentifyText(text)
 	}
 }
