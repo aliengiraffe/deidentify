@@ -33,8 +33,9 @@ var (
 	ssnContextRegexPattern   = `(?i)SSN|social security`
 	creditCardRegexPattern   = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
 	nameRegexPattern         = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
-	addressWordRegexPattern  = `(?i)Street|Avenue|Road|Lane|The `
-	addressRegexPattern      = `\d+\s+[A-Za-z]+ (Street|Avenue|Road|Drive|Lane|Place|Blvd|Boulevard)`
+	addressWordRegexPattern  = `(?i)Street|Avenue|Road|Lane|Drive|Boulevard|Blvd|Way|Plaza|Square|Court|Terrace|Place|Circle|Alley|Row|Highway|Hwy|Parkway|Path|Trail|Crescent|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu`
+	// Main address pattern to capture common formats across multiple countries
+	addressRegexPattern      = `(?i)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way|Plaza|Square|Sq|Court|Ct|Terrace|Ter|Circle|Cir|Alley|Row|Highway|Hwy|Parkway|Pkwy|Path|Trail|Tr|Crescent|Cres|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu|út|de la|del|di|van|von)`
 	phoneFormatRegexPattern  = `^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`
 )
 
@@ -134,9 +135,16 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	result = nameRegex.ReplaceAllStringFunc(result, func(name string) string {
 		// Skip if it looks like an address or contains common words
 		addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-		if addressWordRegex.MatchString(name) {
+		
+		// Additional international street/address indicators
+		internationalAddressContext := regexp.MustCompile(`(?i)(street|avenue|road|lane|drive|boulevard|blvd|way|plaza|square|court|terrace|place|circle|alley|row|highway|parkway|path|trail|crescent|rue|strasse|straße|calle|via|viale|avenida|carrer|straat|gasse|weg|camino|ulica|utca|prospekt|dori|jalan|marg|dao|jie|lu)`)
+		
+		// Check if this is in an address context - either by our global pattern or surrounding 
+		// content that suggests it's part of an address
+		if addressWordRegex.MatchString(name) || internationalAddressContext.MatchString(name) {
 			return name
 		}
+		
 		deidentified, err := d.deidentifyValue(name, TypeName, "name")
 		if err != nil {
 			return "[NAME REDACTION ERROR]"
