@@ -50,8 +50,8 @@ func main() {
     d := deidentify.NewDeidentifier(secretKey)
     
     // Deidentify text containing PII
-    text := `Contact John Smith at john.smith@example.com or (555) 123-4567.
-His SSN is 123-45-6789 and he lives at 123 Main Street.`
+    text := `Contact Frodo Baggins at frodo.baggins@shire.me or (555) 123-4567.
+His SSN is 123-45-6789 and he lives at 1 Bagshot Row, Hobbiton.`
 
     redacted, err := d.DeidentifyText(text)
     if err != nil {
@@ -91,12 +91,12 @@ func main() {
             {
                 Name:     "customer_name",
                 DataType: deidentify.TypeName,
-                Values:   []interface{}{"John Smith", "Mary Johnson", nil},
+                Values:   []interface{}{"Gandalf Grey", "Aragorn Strider", nil},
             },
             {
                 Name:     "email",
                 DataType: deidentify.TypeEmail,
-                Values:   []interface{}{"john@example.com", "mary@example.com", ""},
+                Values:   []interface{}{"mithrandir@wizard.com", "ranger@gondor.me", ""},
             },
         },
     }
@@ -130,14 +130,14 @@ The `deidentify` package uses a deterministic approach for consistency. The secr
 
 ## Supported PII Types
 
-| PII Type     | Description                 | Example Input         | Example Output            |
-|--------------|-----------------------------|-----------------------|---------------------------|
-| TypeName     | Personal names              | John Smith            | Taylor Miller             |
-| TypeEmail    | Email addresses             | john@example.com      | user4921@demo.co          |
-| TypePhone    | Phone numbers               | (555) 123-4567        | (555) 642-8317            |
-| TypeSSN      | Social Security Numbers     | 123-45-6789           | 304-51-9872               |
-| TypeCreditCard| Credit card numbers        | 4111-1111-1111-1111   | 4000 8521 7694 3217       |
-| TypeAddress  | Street addresses            | 123 Main Street       | 2845 Oak Ave              |
+| PII Type     | Description                 | Example Input                | Example Output            |
+|--------------|-----------------------------|-----------------------------|---------------------------|
+| TypeName     | Personal names              | Bilbo Baggins               | Taylor Miller             |
+| TypeEmail    | Email addresses             | bilbo@bag-end.shire         | user4921@demo.co          |
+| TypePhone    | Phone numbers               | (555) 123-4567              | (555) 642-8317            |
+| TypeSSN      | Social Security Numbers     | 123-45-6789                 | 304-51-9872               |
+| TypeCreditCard| Credit card numbers        | 4111-1111-1111-1111         | 4000 8521 7694 3217       |
+| TypeAddress  | Street addresses            | Bag End, Bagshot Row        | 2845 Oak Ave              |
 
 ## Security
 

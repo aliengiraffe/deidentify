@@ -24,9 +24,9 @@ func main() {
 				Name:     "customer_name",
 				DataType: deidentify.TypeName,
 				Values: []interface{}{
-					"John Smith",
-					"Mary Johnson", 
-					"Bob Wilson",
+					"Gandalf Grey",
+					"Galadriel Lothlorien", 
+					"Elrond Halfelven",
 					nil, // Handle nil values
 				},
 			},
@@ -34,9 +34,9 @@ func main() {
 				Name:     "email",
 				DataType: deidentify.TypeEmail,
 				Values: []interface{}{
-					"john.smith@company.com",
-					"mary.j@enterprise.org",
-					"bob123@startup.io",
+					"mithrandir@istari.me",
+					"lady@lothlorien.elf",
+					"elrond@rivendell.me",
 					"",
 				},
 			},
@@ -74,9 +74,9 @@ func main() {
 				Name:     "address",
 				DataType: deidentify.TypeAddress,
 				Values: []interface{}{
-					"123 Main Street",
-					"456 Oak Avenue",
-					"789 Pine Road",
+					"Grey Havens, Lindon",
+					"Lothlorien Forest, Middle-earth",
+					"Rivendell Valley, Eriador",
 					"",
 				},
 			},
@@ -102,22 +102,22 @@ func main() {
 			{
 				Name:     "customer_name",
 				DataType: deidentify.TypeName,
-				Values:   []interface{}{"John Smith"}, // Same value as before
+				Values:   []interface{}{"Gandalf Grey"}, // Same value as before
 			},
 		},
 	}
 	
 	result2, _ := d.DeidentifyTable(table2)
-	fmt.Printf("Same input 'John Smith' produces same output: %v\n", 
+	fmt.Printf("Same input 'Gandalf Grey' produces same output: %v\n", 
 		result2.Columns[0].Values[0])
 	
 	// Demonstrate different column names produce different mappings
 	table3 := &deidentify.Table{
 		Columns: []deidentify.Column{
 			{
-				Name:     "employee_name", // Different column name
+				Name:     "wizard_name", // Different column name
 				DataType: deidentify.TypeName,
-				Values:   []interface{}{"John Smith"}, // Same value
+				Values:   []interface{}{"Gandalf Grey"}, // Same value
 			},
 		},
 	}
