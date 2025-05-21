@@ -601,7 +601,7 @@ func (d *Deidentifier) DeidentifySlices(data [][]string, optional ...interface{}
 	}
 
 	// Generate default column names if not provided
-	if columnNames == nil || len(columnNames) == 0 {
+	if len(columnNames) == 0 {
 		columnNames = make([]string, numCols)
 		for i := 0; i < numCols; i++ {
 			columnNames[i] = fmt.Sprintf("column_%d", i)
@@ -609,7 +609,7 @@ func (d *Deidentifier) DeidentifySlices(data [][]string, optional ...interface{}
 	}
 
 	// Infer column types if not provided
-	if columnTypes == nil || len(columnTypes) == 0 {
+	if len(columnTypes) == 0 {
 		var err error
 		columnTypes, err = d.inferColumnTypes(data)
 		if err != nil {
