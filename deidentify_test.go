@@ -540,7 +540,7 @@ func TestDeidentifySlices(t *testing.T) {
 	
 	// Test with different column names (should produce different results)
 	// Create a fresh deidentifier to ensure clean mapping table
-	d2 := NewDeidentifier("test-secret-key")
+	d2 := NewDeidentifier("test-secret-key-3")
 	differentColumnNames := []string{"customer_name", "customer_email", "customer_phone", "customer_ssn"}
 	result3, err := d2.DeidentifySlices(data, columnTypes, differentColumnNames)
 	if err != nil {
