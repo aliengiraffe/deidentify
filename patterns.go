@@ -22,7 +22,7 @@ var (
 	nameRegexPattern = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
 
 	// Address patterns
-	addressWordRegexPattern = `(?i)Street|Avenue|Road|Lane|Drive|Boulevard|Blvd|Way|Plaza|Square|Court|Terrace|Place|Circle|Alley|Row|Highway|Hwy|Parkway|Path|Trail|Crescent|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu`
+	addressWordRegexPattern = `(?i)\b(Street|Avenue|Road|Lane|Drive|Boulevard|Blvd|Way|Plaza|Square|Court|Terrace|Place|Circle|Alley|Row|Highway|Hwy|Parkway|Path|Trail|Crescent|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu)\b`
 	
 	// Additional international address pattern for more precise name vs. address disambiguation
 	internationalAddressRegexPattern = `(?i)(street|avenue|road|lane|drive|boulevard|blvd|way|plaza|square|court|terrace|place|circle|alley|row|highway|parkway|path|trail|crescent|rue|strasse|straße|calle|via|viale|avenida|carrer|straat|gasse|weg|camino|ulica|utca|prospekt|dori|jalan|marg|dao|jie|lu)`

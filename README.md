@@ -117,11 +117,39 @@ func main() {
 }
 ```
 
+### Processing Slice Data
+
+```go
+// Deidentify [][]string data (CSV-like format)
+data := [][]string{
+    {"Alice Johnson", "alice@example.com", "555-123-4567"},
+    {"Bob Smith", "bob@company.org", "(555) 987-6543"},
+}
+
+// Option 1: Automatic type inference (recommended)
+result, err := d.DeidentifySlices(data)
+if err != nil {
+    log.Fatal("Failed to deidentify:", err)
+}
+// Types are automatically detected: Name, Email, Phone
+// Result: [["Taylor Miller", "user4921@demo.co", "555-642-8317"], ...]
+
+// Option 2: Explicit column types only
+columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
+result, err = d.DeidentifySlices(data, columnTypes)
+
+// Option 3: Both explicit types and custom column names
+columnNames := []string{"customer_name", "customer_email", "customer_phone"}
+result, err = d.DeidentifySlices(data, columnTypes, columnNames)
+```
+
 ## More Examples
 
 See the [examples](./examples) directory for comprehensive usage patterns:
 
 - [Basic usage](./examples/basic/main.go): Simple text deidentification
+- [Table processing](./examples/table/main.go): Structured data with multiple columns and types  
+- [Slice processing](./examples/slices/main.go): CSV-like data processing with [][]string
 - [International address handling](./examples/international/main.go): Support for addresses across different regions
 
 ## Configuration
