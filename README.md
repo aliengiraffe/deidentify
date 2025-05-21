@@ -218,13 +218,22 @@ This makes the new version immediately available for users to install via `go ge
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to contribute to this project.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Quick start for contributors:**
+
+1. Fork the repository and clone your fork
+2. Set up the development environment:
+   ```bash
+   ./scripts/setup-pre-commit-hook.sh
+   go mod download
+   ```
+3. Create your feature branch (`git checkout -b feature/amazing-feature`)
+4. Make your changes and ensure tests pass (`go test ./...`)
+5. Commit your changes (pre-commit hook will format code automatically)
+6. Push to your fork and submit a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on code standards, testing, and the development workflow.
 
 ## License
 
