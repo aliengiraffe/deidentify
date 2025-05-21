@@ -17,7 +17,7 @@ var (
 		"Billie", "Armani", "Jaime", "Storm", "Alva", "Rio", "Marlo", "Milan", "Sidney", "Royal",
 		"Ronnie", "Sky", "Jett", "Remi", "Kit", "Perry", "Lake", "Sol", "Oak", "Mica",
 	}
-	
+
 	lastNameOptions = []string{
 		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
 		"Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin",
@@ -33,7 +33,7 @@ var (
 		"Gonzales", "Fisher", "Vasquez", "Simmons", "Romero", "Jordan", "Patterson", "Alexander", "Hamilton", "Graham",
 		"Reynolds", "Griffin", "Wallace", "Moreno", "West", "Cole", "Hayes", "Bryant", "Herrera", "Gibson",
 	}
-	
+
 	// Email data for generating anonymous emails (100+ options)
 	emailDomainOptions = []string{
 		"example.com", "testmail.org", "sample.net", "demo.co", "placeholder.io", "test.com", "acme.org", "mail.net",
@@ -51,7 +51,7 @@ var (
 		"masked.com", "masked.org", "masked.net", "masked.io", "hidden.com", "hidden.org", "hidden.net", "hidden.io",
 		"anonymous.com", "anonymous.org", "anonymous.net", "anonymous.io", "privacy.com", "privacy.org", "privacy.net",
 	}
-	
+
 	emailUsernameOptions = []string{
 		"user", "test", "demo", "sample", "client", "member", "account", "profile", "person", "contact",
 		"info", "support", "admin", "help", "service", "mail", "email", "inbox", "webmaster", "customer",
@@ -65,7 +65,7 @@ var (
 		"general", "universal", "global", "worldwide", "international", "national", "regional", "local", "personal", "individual",
 		"private", "public", "shared", "common", "mutual", "joint", "collective", "combined", "merged", "unified",
 	}
-	
+
 	// Address data for generating anonymous addresses (120+ options with international variety)
 	streetNameOptions = []string{
 		// English/American/Canadian patterns
@@ -81,7 +81,7 @@ var (
 		"Market Ave", "Commerce Dr", "Business St", "Industry Rd", "Corporate Ave", "Office Dr", "Plaza St", "Center Rd", "Town Square", "Village Green",
 		"Garden St", "Orchard Rd", "Farm Ave", "Ranch Dr", "Estate St", "Manor Rd", "Castle Ave", "Palace Dr", "Royal St", "Crown Rd",
 		// European patterns
-		"Rue de la Paix", "Avenue des Champs-Élysées", "Via Roma", "Calle Mayor", "Königstraße", "Hauptstraße", 
+		"Rue de la Paix", "Avenue des Champs-Élysées", "Via Roma", "Calle Mayor", "Königstraße", "Hauptstraße",
 		"High Street", "Baker Street", "Oxford Street", "Strand", "Gran Vía", "Passeig de Gràcia",
 		// Asian patterns
 		"Chang'an Avenue", "Nanjing Road", "Orchard Road", "Shinjuku Dori", "Ginza Dori", "Sukhumvit Road",

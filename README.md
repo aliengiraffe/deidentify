@@ -53,7 +53,7 @@ func main() {
     text := `Contact Frodo Baggins at frodo.baggins@shire.me or (555) 123-4567.
 His SSN is 123-45-6789 and he lives at 1 Bagshot Row, Hobbiton.`
 
-    redacted, err := d.DeidentifyText(text)
+    redacted, err := d.Text(text)
     if err != nil {
         log.Fatal("Failed to deidentify text:", err)
     }
@@ -102,7 +102,7 @@ func main() {
     }
     
     // Deidentify the table
-    result, err := d.DeidentifyTable(table)
+    result, err := d.Table(table)
     if err != nil {
         log.Fatal("Failed to deidentify table:", err)
     }
@@ -127,7 +127,7 @@ data := [][]string{
 }
 
 // Option 1: Automatic type inference (recommended)
-result, err := d.DeidentifySlices(data)
+result, err := d.Slices(data)
 if err != nil {
     log.Fatal("Failed to deidentify:", err)
 }
@@ -136,11 +136,11 @@ if err != nil {
 
 // Option 2: Explicit column types only
 columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
-result, err = d.DeidentifySlices(data, columnTypes)
+result, err = d.Slices(data, columnTypes)
 
 // Option 3: Both explicit types and custom column names
 columnNames := []string{"customer_name", "customer_email", "customer_phone"}
-result, err = d.DeidentifySlices(data, columnTypes, columnNames)
+result, err = d.Slices(data, columnTypes, columnNames)
 ```
 
 ## More Examples
@@ -218,13 +218,22 @@ This makes the new version immediately available for users to install via `go ge
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to contribute to this project.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Quick start for contributors:**
+
+1. Fork the repository and clone your fork
+2. Set up the development environment:
+   ```bash
+   ./scripts/setup-pre-commit-hook.sh
+   go mod download
+   ```
+3. Create your feature branch (`git checkout -b feature/amazing-feature`)
+4. Make your changes and ensure tests pass (`go test ./...`)
+5. Commit your changes (pre-commit hook will format code automatically)
+6. Push to your fork and submit a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on code standards, testing, and the development workflow.
 
 ## License
 
