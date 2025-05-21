@@ -40,6 +40,27 @@ func main() {
 	fmt.Println("===================================================")
 	fmt.Println()
 	
+	// Special focus on our problematic examples
+	fmt.Println("FOCUS ON SPECIFIC EXAMPLES:")
+	fmt.Println("---------------------------")
+	specificExamples := []string{
+		"123 Orchard Road, Singapore",
+		"15 Rue de Rivoli, Paris, France",
+	}
+	
+	for _, address := range specificExamples {
+		redacted, err := d.DeidentifyAddress(address)
+		if err != nil {
+			fmt.Printf("Error processing '%s': %v\n", address, err)
+			continue
+		}
+		
+		fmt.Printf("Original: %s\n", address)
+		fmt.Printf("Redacted: %s\n\n", redacted)
+	}
+	
+	fmt.Println("OTHER INTERNATIONAL EXAMPLES:")
+	fmt.Println("----------------------------")
 	for _, address := range addresses {
 		redacted, err := d.DeidentifyAddress(address)
 		if err != nil {
@@ -51,11 +72,11 @@ func main() {
 		fmt.Printf("Redacted: %s\n\n", redacted)
 	}
 	
-	// Sample text with international addresses
-	text := `Our company has offices at:
-- European HQ: 15 Rue de Rivoli, Paris, France
-- North American HQ: 555 Fifth Avenue, New York, NY
+	// Sample text with international addresses - focusing on the specific examples
+	text := `Our company has offices at multiple locations:
+- European HQ: 15 Rue de Rivoli, Paris, France (this is our main office)
 - Asian HQ: 123 Orchard Road, Singapore
+- North American HQ: 555 Fifth Avenue, New York, NY
 - Middle Eastern office: 78 Sheikh Zayed Road, Dubai, UAE
 Please contact us at contact@example.com or call our main line at (555) 123-4567.`
 
