@@ -31,7 +31,12 @@ var (
 	phoneRegexPattern               = `(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`
 	ssnRegexPattern                 = `\d{3}[-]?\d{2}[-]?\d{4}`
 	hyphenRegexPattern              = `-`
+	
+  ssnRegexPattern                 = `\d{3}[- ]?\d{2}[- ]?\d{4}`
+	ssnSpaceRegexPattern            = `[ ]`
+	ssnHyphenRegexPattern           = `[-]`
 	ssnContextRegexPattern          = `(?i)SSN|social security`
+  
 	creditCardRegexPattern          = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
 	nameRegexPattern                = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
 	addressWordRegexPattern         = `(?i)Street|Avenue|Road|Lane|Drive|Boulevard|Blvd|Way|Plaza|Square|Court|Terrace|Place|Circle|Alley|Row|Highway|Hwy|Parkway|Path|Trail|Crescent|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu`
@@ -44,10 +49,10 @@ var (
 	isoCountryCodeRegexPattern       = `(?i)\b(AF|AX|AL|DZ|AS|AD|AO|AI|AQ|AG|AR|AM|AW|AU|AT|AZ|BS|BH|BD|BB|BY|BE|BZ|BJ|BM|BT|BO|BQ|BA|BW|BV|BR|IO|BN|BG|BF|BI|KH|CM|CA|CV|KY|CF|TD|CL|CN|CX|CC|CO|KM|CG|CD|CK|CR|CI|HR|CU|CW|CY|CZ|DK|DJ|DM|DO|EC|EG|SV|GQ|ER|EE|ET|FK|FO|FJ|FI|FR|GF|PF|TF|GA|GM|GE|DE|GH|GI|GR|GL|GD|GP|GU|GT|GG|GN|GW|GY|HT|HM|VA|HN|HK|HU|IS|IN|ID|IR|IQ|IE|IM|IL|IT|JM|JP|JE|JO|KZ|KE|KI|KP|KR|KW|KG|LA|LV|LB|LS|LR|LY|LI|LT|LU|MO|MK|MG|MW|MY|MV|ML|MT|MH|MQ|MR|MU|YT|MX|FM|MD|MC|MN|ME|MS|MA|MZ|MM|NA|NR|NP|NL|NC|NZ|NI|NE|NG|NU|NF|MP|NO|OM|PK|PW|PS|PA|PG|PY|PE|PH|PN|PL|PT|PR|QA|RE|RO|RU|RW|BL|SH|KN|LC|MF|PM|VC|WS|SM|ST|SA|SN|RS|SC|SL|SG|SX|SK|SI|SB|SO|ZA|GS|SS|ES|LK|SD|SR|SJ|SZ|SE|CH|SY|TW|TJ|TZ|TH|TL|TG|TK|TO|TT|TN|TR|TM|TC|TV|UG|UA|AE|GB|US|USA|UM|UY|UZ|VU|VE|VN|VG|VI|WF|EH|YE|ZM|ZW)\b`
 	
 	// Special address patterns for international addresses with country names or ISO codes
-	specialAddressPattern1 = `(?i)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Road|Rd|Street|St|Avenue|Ave|Boulevard|Blvd|Drive|Dr)[\s,]+` + countryNameRegexPattern
-	specialAddressPattern2 = `(?i)(\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Rue|Via|Road|Street|Avenue)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*)[\s,]+` + cityRegexPattern + `[\s,]+` + countryNameRegexPattern
+	specialAddressPattern1           = `(?i)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Road|Rd|Street|St|Avenue|Ave|Boulevard|Blvd|Drive|Dr)[\s,]+` + countryNameRegexPattern
+	specialAddressPattern2           = `(?i)(\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Rue|Via|Road|Street|Avenue)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*)[\s,]+` + cityRegexPattern + `[\s,]+` + countryNameRegexPattern
 	// For addresses in text that might have a label before them (like "European HQ: 15 Rue de Rivoli")
-	specialAddressPattern3 = `(?i)(:\s+|at\s+|@\s+)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Road|Rd|Street|St|Avenue|Ave|Boulevard|Blvd|Drive|Dr|Lane|Ln|Place|Pl|Rue|Via|Viale|Strasse|Straße|Calle|Avenida)`
+	specialAddressPattern3           = `(?i)(:\s+|at\s+|@\s+)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Road|Rd|Street|St|Avenue|Ave|Boulevard|Blvd|Drive|Dr|Lane|Ln|Place|Pl|Rue|Via|Viale|Strasse|Straße|Calle|Avenida)`
 	
 	// Main address pattern to capture common formats across multiple countries
 	addressRegexPattern              = `(?i)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way|Plaza|Square|Sq|Court|Ct|Terrace|Ter|Circle|Cir|Alley|Row|Highway|Hwy|Parkway|Pkwy|Path|Trail|Tr|Crescent|Cres|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu|út|de la|del|di|van|von)(\s*,\s*|\s+)([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*)?(\s*,\s*|\s+)?(` + isoCountryCodeRegexPattern + `|` + countryNameRegexPattern + `)?`
@@ -111,12 +116,20 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	ssnRegex := regexp.MustCompile(ssnRegexPattern)
 	result = ssnRegex.ReplaceAllStringFunc(result, func(ssn string) string {
 		// Verify it's likely an SSN, not just any 9 digits
-		hyphenRegex := regexp.MustCompile(hyphenRegexPattern)
+		ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
+		ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
 		ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
 		
-		if !hyphenRegex.MatchString(ssn) && !ssnContextRegex.MatchString(text) {
-			// If no hyphens and not mentioned as SSN, might be something else - check surrounding text
-			if len(ssn) == 9 {
+		// Get the raw digits without any separators
+		rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
+		
+		// Check if it's formatted like an SSN (with hyphens or spaces) or mentioned with SSN context
+		isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn) 
+		hasSSNContext := ssnContextRegex.MatchString(text)
+		
+		if !isFormatted && !hasSSNContext {
+			// If not formatted like an SSN and no SSN context, only detect if exactly 9 digits
+			if len(rawDigits) == 9 {
 				// Assume it's an SSN if it's exactly 9 digits
 				deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
 				if err != nil {
