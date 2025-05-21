@@ -49,11 +49,10 @@ jobs:
             echo "" >> changelog.txt
             git log --pretty=format:"* %s (%h)" $PREV_TAG..${{ env.VERSION }} >> changelog.txt
           fi
-          {
-            echo 'CHANGELOG<<EOF'
-            cat changelog.txt
-            echo 'EOF'
-          } >> $GITHUB_ENV
+          echo 'CHANGELOG<<EOF' >> $GITHUB_ENV
+          cat changelog.txt >> $GITHUB_ENV
+          echo '' >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
           
       - name: Generate Module documentation
         run: |
