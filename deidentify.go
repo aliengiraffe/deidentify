@@ -13,6 +13,7 @@ import (
 	"sync"
 )
 
+// DataType represents the type of personally identifiable information
 type DataType int
 
 const (
@@ -25,235 +26,41 @@ const (
 	TypeGeneric
 )
 
+// Column represents a single column in a table with its data type and values
 type Column struct {
 	Name     string
 	DataType DataType
 	Values   []interface{}
 }
 
-type Table struct {
-	Columns []Column
-}
-
+// Deidentifier handles the deidentification of PII data
 type Deidentifier struct {
 	secretKey     []byte
 	mappingTables map[string]map[string]string
 	mutex         sync.RWMutex
 }
 
-// NewDeidentifier creates a new deidentifier with a secret key
-func NewDeidentifier(secretKey string) *Deidentifier {
-	return &Deidentifier{
-		secretKey:     []byte(secretKey),
-		mappingTables: make(map[string]map[string]string),
-	}
+// Table represents a collection of columns
+type Table struct {
+	Columns []Column
 }
 
-// Text identifies and deidentifies PII from a text string
-func (d *Deidentifier) Text(text string) (string, error) {
-	if text == "" {
-		return "", nil
-	}
-
-	result := text
-	result = d.processEmails(result)
-	result = d.processPhones(result)
-	result = d.processSSNs(result, text)
-	result = d.processCreditCards(result)
-	result = d.processContextAddresses(result)
-	result = d.processSpecialAddresses(result)
-	result = d.processNames(result)
-	result = d.processStandardAddresses(result)
-
-	return result, nil
+// patternSet holds compiled regex patterns for type inference
+type patternSet struct {
+	email       *regexp.Regexp
+	phone       *regexp.Regexp
+	ssn         *regexp.Regexp
+	creditCard  *regexp.Regexp
+	name        *regexp.Regexp
+	address     *regexp.Regexp
+	addressWord *regexp.Regexp
 }
 
-// processEmails handles email deidentification
-func (d *Deidentifier) processEmails(text string) string {
-	emailRegex := regexp.MustCompile(emailRegexPattern)
-	return emailRegex.ReplaceAllStringFunc(text, func(email string) string {
-		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
-		if err != nil {
-			return "[EMAIL REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// processPhones handles phone number deidentification
-func (d *Deidentifier) processPhones(text string) string {
-	phoneRegex := regexp.MustCompile(phoneRegexPattern)
-	return phoneRegex.ReplaceAllStringFunc(text, func(phone string) string {
-		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
-		if err != nil {
-			return "[PHONE REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// processSSNs handles SSN deidentification with context checking
-func (d *Deidentifier) processSSNs(text, originalText string) string {
-	ssnRegex := regexp.MustCompile(ssnRegexPattern)
-	return ssnRegex.ReplaceAllStringFunc(text, func(ssn string) string {
-		return d.processSSNMatch(ssn, originalText)
-	})
-}
-
-// processSSNMatch processes a single SSN match with validation
-func (d *Deidentifier) processSSNMatch(ssn, originalText string) string {
-	ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
-	ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
-	ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
-
-	rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
-	isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn)
-	hasSSNContext := ssnContextRegex.MatchString(originalText)
-
-	if !isFormatted && !hasSSNContext && len(rawDigits) != 9 {
-		return ssn
-	}
-
-	deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
-	if err != nil {
-		return "[SSN REDACTION ERROR]"
-	}
-	return deidentified
-}
-
-// processCreditCards handles credit card deidentification
-func (d *Deidentifier) processCreditCards(text string) string {
-	ccRegex := regexp.MustCompile(creditCardRegexPattern)
-	return ccRegex.ReplaceAllStringFunc(text, func(cc string) string {
-		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
-		if err != nil {
-			return "[CC REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// processContextAddresses handles addresses with contextual clues
-func (d *Deidentifier) processContextAddresses(text string) string {
-	contextAddressPattern := regexp.MustCompile(`(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`)
-	return contextAddressPattern.ReplaceAllStringFunc(text, func(match string) string {
-		parts := contextAddressPattern.FindStringSubmatch(match)
-		if len(parts) < 3 {
-			return match
-		}
-
-		prefix := parts[1]
-		address := strings.TrimSpace(parts[2])
-
-		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
-		if err != nil {
-			return match
-		}
-
-		return prefix + " " + deidentified
-	})
-}
-
-// processSpecialAddresses handles special address patterns
-func (d *Deidentifier) processSpecialAddresses(text string) string {
-	text = d.processSpecialAddressPattern(text, specialAddressPattern1)
-	text = d.processSpecialAddressPattern(text, specialAddressPattern2)
-	text = d.processSpecialAddressPattern3(text)
-	return text
-}
-
-// processSpecialAddressPattern handles a single special address pattern
-func (d *Deidentifier) processSpecialAddressPattern(text, pattern string) string {
-	regex := regexp.MustCompile(pattern)
-	return regex.ReplaceAllStringFunc(text, func(addr string) string {
-		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
-		if err != nil {
-			return "[ADDRESS REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// processSpecialAddressPattern3 handles special address pattern 3 with prefix handling
-func (d *Deidentifier) processSpecialAddressPattern3(text string) string {
-	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
-	return specialAddr3Regex.ReplaceAllStringFunc(text, func(addr string) string {
-		parts := strings.SplitN(addr, " ", 2)
-		if len(parts) < 2 {
-			return addr
-		}
-
-		prefix := parts[0]
-		address := strings.TrimSpace(parts[1])
-
-		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
-		if err != nil {
-			return addr
-		}
-
-		return prefix + " " + deidentified
-	})
-}
-
-// processNames handles name deidentification with address context checking
-func (d *Deidentifier) processNames(text string) string {
-	nameRegex := regexp.MustCompile(nameRegexPattern)
-	return nameRegex.ReplaceAllStringFunc(text, func(name string) string {
-		if d.isAddressContext(name) {
-			return name
-		}
-
-		deidentified, err := d.deidentifyValue(name, TypeName, "name")
-		if err != nil {
-			return "[NAME REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// isAddressContext checks if a name candidate is actually part of an address
-func (d *Deidentifier) isAddressContext(name string) bool {
-	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-	internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
-	countryRegex := regexp.MustCompile(countryNameRegexPattern)
-	cityRegex := regexp.MustCompile(cityRegexPattern)
-
-	return addressWordRegex.MatchString(name) ||
-		internationalAddressRegex.MatchString(name) ||
-		countryRegex.MatchString(name) ||
-		cityRegex.MatchString(name)
-}
-
-// processStandardAddresses handles standard address patterns
-func (d *Deidentifier) processStandardAddresses(text string) string {
-	addrRegex := regexp.MustCompile(addressRegexPattern)
-	return addrRegex.ReplaceAllStringFunc(text, func(addr string) string {
-		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
-		if err != nil {
-			return "[ADDRESS REDACTION ERROR]"
-		}
-		return deidentified
-	})
-}
-
-// Email is a convenience method to deidentify a single email
-func (d *Deidentifier) Email(email string) (string, error) {
-	return d.deidentifyValue(email, TypeEmail, "email")
-}
-
-// Phone is a convenience method to deidentify a single phone number
-func (d *Deidentifier) Phone(phone string) (string, error) {
-	return d.deidentifyValue(phone, TypePhone, "phone")
-}
-
-// SSN is a convenience method to deidentify a single SSN
-func (d *Deidentifier) SSN(ssn string) (string, error) {
-	return d.deidentifyValue(ssn, TypeSSN, "ssn")
-}
-
-// Name is a convenience method to deidentify a single name
-func (d *Deidentifier) Name(name string) (string, error) {
-	return d.deidentifyValue(name, TypeName, "name")
+// slicesConfig holds the configuration for slice processing
+type slicesConfig struct {
+	columnTypes []DataType
+	columnNames []string
+	numCols     int
 }
 
 // Address is a convenience method to deidentify a single address
@@ -322,9 +129,56 @@ func (d *Deidentifier) Address(address string) (string, error) {
 	return deidentified, nil
 }
 
+// ClearMappings clears all stored mappings (useful for testing)
+func (d *Deidentifier) ClearMappings() {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.mappingTables = make(map[string]map[string]string)
+}
+
 // CreditCard is a convenience method to deidentify a single credit card number
 func (d *Deidentifier) CreditCard(cc string) (string, error) {
 	return d.deidentifyValue(cc, TypeCreditCard, "credit_card")
+}
+
+// Email is a convenience method to deidentify a single email
+func (d *Deidentifier) Email(email string) (string, error) {
+	return d.deidentifyValue(email, TypeEmail, "email")
+}
+
+// Name is a convenience method to deidentify a single name
+func (d *Deidentifier) Name(name string) (string, error) {
+	return d.deidentifyValue(name, TypeName, "name")
+}
+
+// Phone is a convenience method to deidentify a single phone number
+func (d *Deidentifier) Phone(phone string) (string, error) {
+	return d.deidentifyValue(phone, TypePhone, "phone")
+}
+
+// SSN is a convenience method to deidentify a single SSN
+func (d *Deidentifier) SSN(ssn string) (string, error) {
+	return d.deidentifyValue(ssn, TypeSSN, "ssn")
+}
+
+// Slices processes a slice of string slices ([][]string)
+// Each inner slice represents a row of data
+// Optional parameters:
+//   - columnTypes: DataType for each column (will infer if not provided)
+//   - columnNames: names for each column (will generate if not provided)
+//
+// Usage: Slices(data) or Slices(data, columnTypes) or Slices(data, columnTypes, columnNames)
+func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]string, error) {
+	if len(data) == 0 {
+		return [][]string{}, nil
+	}
+
+	config, err := d.parseSlicesParameters(data, optional...)
+	if err != nil {
+		return nil, err
+	}
+
+	return d.processSliceData(data, config)
 }
 
 // Table processes an entire table
@@ -358,6 +212,79 @@ func (d *Deidentifier) Table(table *Table) (*Table, error) {
 	}
 
 	return result, nil
+}
+
+// Text identifies and deidentifies PII from a text string
+func (d *Deidentifier) Text(text string) (string, error) {
+	if text == "" {
+		return "", nil
+	}
+
+	result := text
+	result = d.processEmails(result)
+	result = d.processPhones(result)
+	result = d.processSSNs(result, text)
+	result = d.processCreditCards(result)
+	result = d.processContextAddresses(result)
+	result = d.processSpecialAddresses(result)
+	result = d.processNames(result)
+	result = d.processStandardAddresses(result)
+
+	return result, nil
+}
+
+// GenerateSecretKey generates a cryptographically secure random key
+func GenerateSecretKey() (string, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(key), nil
+}
+
+// NewDeidentifier creates a new deidentifier with a secret key
+func NewDeidentifier(secretKey string) *Deidentifier {
+	return &Deidentifier{
+		secretKey:     []byte(secretKey),
+		mappingTables: make(map[string]map[string]string),
+	}
+}
+
+// calculateLuhnCheckDigit calculates the Luhn checksum digit
+func (d *Deidentifier) calculateLuhnCheckDigit(cardNumber string) int {
+	sum := 0
+	alternate := true
+
+	// Process digits from right to left (excluding check digit position)
+	for i := len(cardNumber) - 1; i >= 0; i-- {
+		digit, _ := strconv.Atoi(string(cardNumber[i]))
+
+		if alternate {
+			digit *= 2
+			if digit > 9 {
+				digit = digit/10 + digit%10
+			}
+		}
+
+		sum += digit
+		alternate = !alternate
+	}
+
+	return (10 - (sum % 10)) % 10
+}
+
+// compilePatterns compiles all regex patterns once for efficiency
+func (d *Deidentifier) compilePatterns() *patternSet {
+	return &patternSet{
+		email:       regexp.MustCompile(emailRegexPattern),
+		phone:       regexp.MustCompile(phoneRegexPattern),
+		ssn:         regexp.MustCompile(ssnRegexPattern),
+		creditCard:  regexp.MustCompile(creditCardRegexPattern),
+		name:        regexp.MustCompile(nameRegexPattern),
+		address:     regexp.MustCompile(addressRegexPattern),
+		addressWord: regexp.MustCompile(addressWordRegexPattern),
+	}
 }
 
 // deidentifyValue handles individual value deidentification
@@ -400,13 +327,62 @@ func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnNa
 	return result, nil
 }
 
-// generateName creates a deterministic fake name
-func (d *Deidentifier) generateName(original string) string {
-	hash := d.deterministicHash(original)
-	firstIdx := d.hashToIndex(hash[:8], len(firstNameOptions))
-	lastIdx := d.hashToIndex(hash[8:16], len(lastNameOptions))
+// deterministicHash creates a consistent hash using HMAC
+func (d *Deidentifier) deterministicHash(input string) []byte {
+	h := hmac.New(sha256.New, d.secretKey)
+	h.Write([]byte(input))
+	return h.Sum(nil)
+}
 
-	return fmt.Sprintf("%s %s", firstNameOptions[firstIdx], lastNameOptions[lastIdx])
+// findHighestScoringType finds the type with the highest score
+func (d *Deidentifier) findHighestScoringType(typeScores map[DataType]int) (DataType, int) {
+	var bestType DataType = TypeGeneric
+	var maxScore int = 0
+
+	for dataType, score := range typeScores {
+		if score > maxScore {
+			maxScore = score
+			bestType = dataType
+		}
+	}
+	return bestType, maxScore
+}
+
+// generateAddress creates a deterministic fake address
+func (d *Deidentifier) generateAddress(original string) string {
+	hash := d.deterministicHash(original)
+	number := 1 + d.hashToIndex(hash[:8], 9999)
+	streetIdx := d.hashToIndex(hash[8:16], len(streetNameOptions))
+
+	return fmt.Sprintf("%d %s", number, streetNameOptions[streetIdx])
+}
+
+// generateCreditCard creates a deterministic fake credit card with valid Luhn checksum
+func (d *Deidentifier) generateCreditCard(original string) string {
+	// Use test card prefixes (4000 for Visa test cards)
+	hash := d.deterministicHash(original)
+
+	// Generate 15 digits (4000 + 11 more digits)
+	cardNumber := "4000"
+	for i := 0; i < 11; i++ {
+		digit := d.hashToIndex(hash[i*2:i*2+2], 10)
+		cardNumber += strconv.Itoa(digit)
+	}
+
+	// Calculate and append Luhn checksum
+	checkDigit := d.calculateLuhnCheckDigit(cardNumber)
+	cardNumber += strconv.Itoa(checkDigit)
+
+	// Format with spaces every 4 digits
+	formatted := ""
+	for i, char := range cardNumber {
+		if i > 0 && i%4 == 0 {
+			formatted += " "
+		}
+		formatted += string(char)
+	}
+
+	return formatted
 }
 
 // generateEmail creates a deterministic fake email
@@ -417,6 +393,21 @@ func (d *Deidentifier) generateEmail(original string) string {
 	suffix := d.hashToIndex(hash[16:24], 9999)
 
 	return fmt.Sprintf("%s%d@%s", emailUsernameOptions[userIdx], suffix, emailDomainOptions[domainIdx])
+}
+
+// generateGeneric creates a deterministic replacement for generic data
+func (d *Deidentifier) generateGeneric(original string) string {
+	hash := d.deterministicHash(original)
+	return fmt.Sprintf("DATA_%s", hex.EncodeToString(hash[:8]))
+}
+
+// generateName creates a deterministic fake name
+func (d *Deidentifier) generateName(original string) string {
+	hash := d.deterministicHash(original)
+	firstIdx := d.hashToIndex(hash[:8], len(firstNameOptions))
+	lastIdx := d.hashToIndex(hash[8:16], len(lastNameOptions))
+
+	return fmt.Sprintf("%s %s", firstNameOptions[firstIdx], lastNameOptions[lastIdx])
 }
 
 // generatePhone creates a deterministic fake phone number preserving format
@@ -463,54 +454,23 @@ func (d *Deidentifier) generateSSN(original string) string {
 	return fmt.Sprintf("%03d-%02d-%04d", area, group, serial)
 }
 
-// generateCreditCard creates a deterministic fake credit card with valid Luhn checksum
-func (d *Deidentifier) generateCreditCard(original string) string {
-	// Use test card prefixes (4000 for Visa test cards)
-	hash := d.deterministicHash(original)
-
-	// Generate 15 digits (4000 + 11 more digits)
-	cardNumber := "4000"
-	for i := 0; i < 11; i++ {
-		digit := d.hashToIndex(hash[i*2:i*2+2], 10)
-		cardNumber += strconv.Itoa(digit)
+// getConfidenceThreshold returns the confidence threshold for a given type
+func (d *Deidentifier) getConfidenceThreshold(dataType DataType, validValues int) int {
+	if dataType == TypeName {
+		return validValues * 3 // 30% threshold for names
 	}
+	return validValues * 5 // 50% threshold for other types
+}
 
-	// Calculate and append Luhn checksum
-	checkDigit := d.calculateLuhnCheckDigit(cardNumber)
-	cardNumber += strconv.Itoa(checkDigit)
+// getMapping retrieves an existing mapping for deterministic results
+func (d *Deidentifier) getMapping(columnName, original string) string {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
-	// Format with spaces every 4 digits
-	formatted := ""
-	for i, char := range cardNumber {
-		if i > 0 && i%4 == 0 {
-			formatted += " "
-		}
-		formatted += string(char)
+	if columnMap, exists := d.mappingTables[columnName]; exists {
+		return columnMap[original]
 	}
-
-	return formatted
-}
-
-// generateAddress creates a deterministic fake address
-func (d *Deidentifier) generateAddress(original string) string {
-	hash := d.deterministicHash(original)
-	number := 1 + d.hashToIndex(hash[:8], 9999)
-	streetIdx := d.hashToIndex(hash[8:16], len(streetNameOptions))
-
-	return fmt.Sprintf("%d %s", number, streetNameOptions[streetIdx])
-}
-
-// generateGeneric creates a deterministic replacement for generic data
-func (d *Deidentifier) generateGeneric(original string) string {
-	hash := d.deterministicHash(original)
-	return fmt.Sprintf("DATA_%s", hex.EncodeToString(hash[:8]))
-}
-
-// deterministicHash creates a consistent hash using HMAC
-func (d *Deidentifier) deterministicHash(input string) []byte {
-	h := hmac.New(sha256.New, d.secretKey)
-	h.Write([]byte(input))
-	return h.Sum(nil)
+	return ""
 }
 
 // hashToIndex converts hash bytes to an index within range
@@ -524,103 +484,71 @@ func (d *Deidentifier) hashToIndex(hashBytes []byte, max int) int {
 	return int(bigInt.Mod(bigInt, big.NewInt(int64(max))).Int64())
 }
 
-// calculateLuhnCheckDigit calculates the Luhn checksum digit
-func (d *Deidentifier) calculateLuhnCheckDigit(cardNumber string) int {
-	sum := 0
-	alternate := true
-
-	// Process digits from right to left (excluding check digit position)
-	for i := len(cardNumber) - 1; i >= 0; i-- {
-		digit, _ := strconv.Atoi(string(cardNumber[i]))
-
-		if alternate {
-			digit *= 2
-			if digit > 9 {
-				digit = digit/10 + digit%10
-			}
-		}
-
-		sum += digit
-		alternate = !alternate
-	}
-
-	return (10 - (sum % 10)) % 10
-}
-
-// Mapping table functions for consistency
-func (d *Deidentifier) getMapping(columnName, original string) string {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-
-	if columnMap, exists := d.mappingTables[columnName]; exists {
-		return columnMap[original]
-	}
-	return ""
-}
-
-func (d *Deidentifier) setMapping(columnName, original, replacement string) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	if d.mappingTables[columnName] == nil {
-		d.mappingTables[columnName] = make(map[string]string)
-	}
-	d.mappingTables[columnName][original] = replacement
-}
-
-// ClearMappings clears all stored mappings (useful for testing)
-func (d *Deidentifier) ClearMappings() {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	d.mappingTables = make(map[string]map[string]string)
-}
-
-// Slices processes a slice of string slices ([][]string)
-// Each inner slice represents a row of data
-// Optional parameters:
-//   - columnTypes: DataType for each column (will infer if not provided)
-//   - columnNames: names for each column (will generate if not provided)
-//
-// Usage: Slices(data) or Slices(data, columnTypes) or Slices(data, columnTypes, columnNames)
-func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]string, error) {
+// inferColumnTypes analyzes the data to determine the most likely data type for each column
+func (d *Deidentifier) inferColumnTypes(data [][]string) ([]DataType, error) {
 	if len(data) == 0 {
-		return [][]string{}, nil
+		return []DataType{}, nil
 	}
 
-	config, err := d.parseSlicesParameters(data, optional...)
-	if err != nil {
-		return nil, err
+	numCols := len(data[0])
+	columnTypes := make([]DataType, numCols)
+	patterns := d.compilePatterns()
+
+	for col := 0; col < numCols; col++ {
+		columnTypes[col] = d.inferSingleColumnType(data, col, patterns)
 	}
 
-	return d.processSliceData(data, config)
+	return columnTypes, nil
 }
 
-// slicesConfig holds the configuration for slice processing
-type slicesConfig struct {
-	columnTypes []DataType
-	columnNames []string
-	numCols     int
+// inferOrValidateColumnTypes infers column types if not provided
+func (d *Deidentifier) inferOrValidateColumnTypes(data [][]string, config *slicesConfig) error {
+	if len(config.columnTypes) == 0 {
+		var err error
+		config.columnTypes, err = d.inferColumnTypes(data)
+		if err != nil {
+			return fmt.Errorf("failed to infer column types: %w", err)
+		}
+	}
+	return nil
 }
 
-// parseSlicesParameters parses and validates the optional parameters for Slices
-func (d *Deidentifier) parseSlicesParameters(data [][]string, optional ...interface{}) (*slicesConfig, error) {
-	config := &slicesConfig{
-		numCols: len(data[0]),
-	}
+// inferSingleColumnType analyzes a single column to determine its type
+func (d *Deidentifier) inferSingleColumnType(data [][]string, col int, patterns *patternSet) DataType {
+	typeScores := d.initializeTypeScores()
+	validValues := d.scoreColumnValues(data, col, patterns, typeScores)
+	return d.selectBestType(typeScores, validValues)
+}
 
-	if err := d.parseOptionalParameters(optional, config); err != nil {
-		return nil, err
+// initializeTypeScores creates a map with zero scores for all types
+func (d *Deidentifier) initializeTypeScores() map[DataType]int {
+	return map[DataType]int{
+		TypeEmail:      0,
+		TypePhone:      0,
+		TypeSSN:        0,
+		TypeCreditCard: 0,
+		TypeAddress:    0,
+		TypeName:       0,
+		TypeGeneric:    0,
 	}
+}
 
-	if err := d.setDefaultColumnNames(config); err != nil {
-		return nil, err
-	}
+// isAddressContext checks if a name candidate is actually part of an address
+func (d *Deidentifier) isAddressContext(name string) bool {
+	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
+	internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
+	countryRegex := regexp.MustCompile(countryNameRegexPattern)
+	cityRegex := regexp.MustCompile(cityRegexPattern)
 
-	if err := d.inferOrValidateColumnTypes(data, config); err != nil {
-		return nil, err
-	}
+	return addressWordRegex.MatchString(name) ||
+		internationalAddressRegex.MatchString(name) ||
+		countryRegex.MatchString(name) ||
+		cityRegex.MatchString(name)
+}
 
-	return config, d.validateSlicesConfig(config)
+// isValidValue checks if a cell contains a valid value for analysis
+func (d *Deidentifier) isValidValue(data [][]string, row, col int) bool {
+	return col < len(data[row]) && data[row][col] != "" && strings.TrimSpace(data[row][col]) != ""
 }
 
 // parseOptionalParameters extracts columnTypes and columnNames from optional parameters
@@ -644,36 +572,98 @@ func (d *Deidentifier) parseOptionalParameters(optional []interface{}, config *s
 	return nil
 }
 
-// setDefaultColumnNames generates default column names if not provided
-func (d *Deidentifier) setDefaultColumnNames(config *slicesConfig) error {
-	if len(config.columnNames) == 0 {
-		config.columnNames = make([]string, config.numCols)
-		for i := 0; i < config.numCols; i++ {
-			config.columnNames[i] = fmt.Sprintf("column_%d", i)
-		}
+// parseSlicesParameters parses and validates the optional parameters for Slices
+func (d *Deidentifier) parseSlicesParameters(data [][]string, optional ...interface{}) (*slicesConfig, error) {
+	config := &slicesConfig{
+		numCols: len(data[0]),
 	}
-	return nil
+
+	if err := d.parseOptionalParameters(optional, config); err != nil {
+		return nil, err
+	}
+
+	if err := d.setDefaultColumnNames(config); err != nil {
+		return nil, err
+	}
+
+	if err := d.inferOrValidateColumnTypes(data, config); err != nil {
+		return nil, err
+	}
+
+	return config, d.validateSlicesConfig(config)
 }
 
-// inferOrValidateColumnTypes infers column types if not provided
-func (d *Deidentifier) inferOrValidateColumnTypes(data [][]string, config *slicesConfig) error {
-	if len(config.columnTypes) == 0 {
-		var err error
-		config.columnTypes, err = d.inferColumnTypes(data)
+// processContextAddresses handles addresses with contextual clues
+func (d *Deidentifier) processContextAddresses(text string) string {
+	contextAddressPattern := regexp.MustCompile(`(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`)
+	return contextAddressPattern.ReplaceAllStringFunc(text, func(match string) string {
+		parts := contextAddressPattern.FindStringSubmatch(match)
+		if len(parts) < 3 {
+			return match
+		}
+
+		prefix := parts[1]
+		address := strings.TrimSpace(parts[2])
+
+		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
 		if err != nil {
-			return fmt.Errorf("failed to infer column types: %w", err)
+			return match
 		}
-	}
-	return nil
+
+		return prefix + " " + deidentified
+	})
 }
 
-// validateSlicesConfig validates that configuration matches data structure
-func (d *Deidentifier) validateSlicesConfig(config *slicesConfig) error {
-	if len(config.columnTypes) != config.numCols || len(config.columnNames) != config.numCols {
-		return fmt.Errorf("mismatch between data columns (%d) and provided column types (%d) or names (%d)",
-			config.numCols, len(config.columnTypes), len(config.columnNames))
-	}
-	return nil
+// processCreditCards handles credit card deidentification
+func (d *Deidentifier) processCreditCards(text string) string {
+	ccRegex := regexp.MustCompile(creditCardRegexPattern)
+	return ccRegex.ReplaceAllStringFunc(text, func(cc string) string {
+		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
+		if err != nil {
+			return "[CC REDACTION ERROR]"
+		}
+		return deidentified
+	})
+}
+
+// processEmails handles email deidentification
+func (d *Deidentifier) processEmails(text string) string {
+	emailRegex := regexp.MustCompile(emailRegexPattern)
+	return emailRegex.ReplaceAllStringFunc(text, func(email string) string {
+		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
+		if err != nil {
+			return "[EMAIL REDACTION ERROR]"
+		}
+		return deidentified
+	})
+}
+
+// processNames handles name deidentification with address context checking
+func (d *Deidentifier) processNames(text string) string {
+	nameRegex := regexp.MustCompile(nameRegexPattern)
+	return nameRegex.ReplaceAllStringFunc(text, func(name string) string {
+		if d.isAddressContext(name) {
+			return name
+		}
+
+		deidentified, err := d.deidentifyValue(name, TypeName, "name")
+		if err != nil {
+			return "[NAME REDACTION ERROR]"
+		}
+		return deidentified
+	})
+}
+
+// processPhones handles phone number deidentification
+func (d *Deidentifier) processPhones(text string) string {
+	phoneRegex := regexp.MustCompile(phoneRegexPattern)
+	return phoneRegex.ReplaceAllStringFunc(text, func(phone string) string {
+		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
+		if err != nil {
+			return "[PHONE REDACTION ERROR]"
+		}
+		return deidentified
+	})
 }
 
 // processSliceData processes the slice data using the provided configuration
@@ -713,65 +703,86 @@ func (d *Deidentifier) processSliceRow(row []string, config *slicesConfig, rowIn
 	return resultRow, nil
 }
 
-// inferColumnTypes analyzes the data to determine the most likely data type for each column
-func (d *Deidentifier) inferColumnTypes(data [][]string) ([]DataType, error) {
-	if len(data) == 0 {
-		return []DataType{}, nil
-	}
-
-	numCols := len(data[0])
-	columnTypes := make([]DataType, numCols)
-	patterns := d.compilePatterns()
-
-	for col := 0; col < numCols; col++ {
-		columnTypes[col] = d.inferSingleColumnType(data, col, patterns)
-	}
-
-	return columnTypes, nil
+// processSpecialAddressPattern handles a single special address pattern
+func (d *Deidentifier) processSpecialAddressPattern(text, pattern string) string {
+	regex := regexp.MustCompile(pattern)
+	return regex.ReplaceAllStringFunc(text, func(addr string) string {
+		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
+		if err != nil {
+			return "[ADDRESS REDACTION ERROR]"
+		}
+		return deidentified
+	})
 }
 
-// patternSet holds compiled regex patterns for type inference
-type patternSet struct {
-	email       *regexp.Regexp
-	phone       *regexp.Regexp
-	ssn         *regexp.Regexp
-	creditCard  *regexp.Regexp
-	name        *regexp.Regexp
-	address     *regexp.Regexp
-	addressWord *regexp.Regexp
+// processSpecialAddressPattern3 handles special address pattern 3 with prefix handling
+func (d *Deidentifier) processSpecialAddressPattern3(text string) string {
+	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
+	return specialAddr3Regex.ReplaceAllStringFunc(text, func(addr string) string {
+		parts := strings.SplitN(addr, " ", 2)
+		if len(parts) < 2 {
+			return addr
+		}
+
+		prefix := parts[0]
+		address := strings.TrimSpace(parts[1])
+
+		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
+		if err != nil {
+			return addr
+		}
+
+		return prefix + " " + deidentified
+	})
 }
 
-// compilePatterns compiles all regex patterns once for efficiency
-func (d *Deidentifier) compilePatterns() *patternSet {
-	return &patternSet{
-		email:       regexp.MustCompile(emailRegexPattern),
-		phone:       regexp.MustCompile(phoneRegexPattern),
-		ssn:         regexp.MustCompile(ssnRegexPattern),
-		creditCard:  regexp.MustCompile(creditCardRegexPattern),
-		name:        regexp.MustCompile(nameRegexPattern),
-		address:     regexp.MustCompile(addressRegexPattern),
-		addressWord: regexp.MustCompile(addressWordRegexPattern),
+// processSpecialAddresses handles special address patterns
+func (d *Deidentifier) processSpecialAddresses(text string) string {
+	text = d.processSpecialAddressPattern(text, specialAddressPattern1)
+	text = d.processSpecialAddressPattern(text, specialAddressPattern2)
+	text = d.processSpecialAddressPattern3(text)
+	return text
+}
+
+// processSSNMatch processes a single SSN match with validation
+func (d *Deidentifier) processSSNMatch(ssn, originalText string) string {
+	ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
+	ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
+	ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
+
+	rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
+	isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn)
+	hasSSNContext := ssnContextRegex.MatchString(originalText)
+
+	if !isFormatted && !hasSSNContext && len(rawDigits) != 9 {
+		return ssn
 	}
-}
 
-// inferSingleColumnType analyzes a single column to determine its type
-func (d *Deidentifier) inferSingleColumnType(data [][]string, col int, patterns *patternSet) DataType {
-	typeScores := d.initializeTypeScores()
-	validValues := d.scoreColumnValues(data, col, patterns, typeScores)
-	return d.selectBestType(typeScores, validValues)
-}
-
-// initializeTypeScores creates a map with zero scores for all types
-func (d *Deidentifier) initializeTypeScores() map[DataType]int {
-	return map[DataType]int{
-		TypeEmail:      0,
-		TypePhone:      0,
-		TypeSSN:        0,
-		TypeCreditCard: 0,
-		TypeAddress:    0,
-		TypeName:       0,
-		TypeGeneric:    0,
+	deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
+	if err != nil {
+		return "[SSN REDACTION ERROR]"
 	}
+	return deidentified
+}
+
+// processSSNs handles SSN deidentification with context checking
+func (d *Deidentifier) processSSNs(text, originalText string) string {
+	ssnRegex := regexp.MustCompile(ssnRegexPattern)
+	return ssnRegex.ReplaceAllStringFunc(text, func(ssn string) string {
+		return d.processSSNMatch(ssn, originalText)
+	})
+}
+
+// processStandardAddresses handles standard address patterns
+func (d *Deidentifier) processStandardAddresses(text string) string {
+	addrRegex := regexp.MustCompile(addressRegexPattern)
+	return addrRegex.ReplaceAllStringFunc(text, func(addr string) string {
+		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
+		if err != nil {
+			return "[ADDRESS REDACTION ERROR]"
+		}
+		return deidentified
+	})
 }
 
 // scoreColumnValues analyzes values in a column and updates type scores
@@ -790,11 +801,6 @@ func (d *Deidentifier) scoreColumnValues(data [][]string, col int, patterns *pat
 		}
 	}
 	return validValues
-}
-
-// isValidValue checks if a cell contains a valid value for analysis
-func (d *Deidentifier) isValidValue(data [][]string, row, col int) bool {
-	return col < len(data[row]) && data[row][col] != "" && strings.TrimSpace(data[row][col]) != ""
 }
 
 // scoreValue scores a single value against all patterns
@@ -834,34 +840,33 @@ func (d *Deidentifier) selectBestType(typeScores map[DataType]int, validValues i
 	return TypeGeneric
 }
 
-// findHighestScoringType finds the type with the highest score
-func (d *Deidentifier) findHighestScoringType(typeScores map[DataType]int) (DataType, int) {
-	var bestType DataType = TypeGeneric
-	var maxScore int = 0
-
-	for dataType, score := range typeScores {
-		if score > maxScore {
-			maxScore = score
-			bestType = dataType
+// setDefaultColumnNames generates default column names if not provided
+func (d *Deidentifier) setDefaultColumnNames(config *slicesConfig) error {
+	if len(config.columnNames) == 0 {
+		config.columnNames = make([]string, config.numCols)
+		for i := 0; i < config.numCols; i++ {
+			config.columnNames[i] = fmt.Sprintf("column_%d", i)
 		}
 	}
-	return bestType, maxScore
+	return nil
 }
 
-// getConfidenceThreshold returns the confidence threshold for a given type
-func (d *Deidentifier) getConfidenceThreshold(dataType DataType, validValues int) int {
-	if dataType == TypeName {
-		return validValues * 3 // 30% threshold for names
+// setMapping stores a mapping for deterministic results
+func (d *Deidentifier) setMapping(columnName, original, replacement string) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if d.mappingTables[columnName] == nil {
+		d.mappingTables[columnName] = make(map[string]string)
 	}
-	return validValues * 5 // 50% threshold for other types
+	d.mappingTables[columnName][original] = replacement
 }
 
-// GenerateSecretKey generates a cryptographically secure random key
-func GenerateSecretKey() (string, error) {
-	key := make([]byte, 32)
-	_, err := rand.Read(key)
-	if err != nil {
-		return "", err
+// validateSlicesConfig validates that configuration matches data structure
+func (d *Deidentifier) validateSlicesConfig(config *slicesConfig) error {
+	if len(config.columnTypes) != config.numCols || len(config.columnNames) != config.numCols {
+		return fmt.Errorf("mismatch between data columns (%d) and provided column types (%d) or names (%d)",
+			config.numCols, len(config.columnTypes), len(config.columnNames))
 	}
-	return hex.EncodeToString(key), nil
+	return nil
 }
