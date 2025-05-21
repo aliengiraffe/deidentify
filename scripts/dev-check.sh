@@ -21,7 +21,7 @@ GOFMT_FILES=$(gofmt -l .)
 if [ -n "$GOFMT_FILES" ]; then
     echo -e "${RED}✗ The following files need formatting:${NC}"
     echo "$GOFMT_FILES"
-    echo -e "${YELLOW}Run 'gofmt -ws .' to fix${NC}"
+    echo -e "${YELLOW}Run 'gofmt -w -s .' to fix${NC}"
     exit 1
 else
     echo -e "${GREEN}✓ All Go files are properly formatted${NC}"

@@ -81,7 +81,7 @@ for file in $STAGED_GO_FILES; do
         echo -e "${YELLOW}Formatting $file${NC}"
         
         # Apply gofmt to the file
-        gofmt -ws "$file"
+        gofmt -w -s "$file"
         
         # Add the formatted file back to staging
         git add "$file"
