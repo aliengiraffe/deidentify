@@ -336,8 +336,8 @@ func (d *Deidentifier) deterministicHash(input string) []byte {
 
 // findHighestScoringType finds the type with the highest score
 func (d *Deidentifier) findHighestScoringType(typeScores map[DataType]int) (DataType, int) {
-	var bestType DataType = TypeGeneric
-	var maxScore int = 0
+	bestType := TypeGeneric
+	maxScore := 0
 
 	for dataType, score := range typeScores {
 		if score > maxScore {

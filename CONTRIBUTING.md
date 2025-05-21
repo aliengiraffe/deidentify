@@ -96,16 +96,27 @@ git checkout -b feature/your-feature-name
 
 ### 3. Test Your Changes
 
-```bash
-# Run comprehensive development checks
-./scripts/dev-check.sh
+**Run the comprehensive quality check script** (recommended):
 
-# Or run individual checks:
+```bash
+# Run all Go Report Card A+ quality checks
+./scripts/dev-check.sh
+```
+
+This single script runs all the checks below automatically and ensures your code meets the highest Go quality standards.
+
+**Or run individual checks manually:**
+
+```bash
 go test ./...                    # Run tests
 go test -v ./...                 # Verbose test output
 go test -race ./...              # Test with race detector
 go test -bench=. ./...           # Run benchmarks
 go vet ./...                     # Static analysis
+gofmt -l .                      # Check formatting
+staticcheck ./...               # Advanced static analysis
+golangci-lint run              # Comprehensive linting
+gocyclo -over 15 .             # Check cyclomatic complexity
 ```
 
 ### 4. Commit Changes
@@ -280,24 +291,56 @@ The automation will:
 The `scripts/` directory contains helpful development tools:
 
 - **`setup-pre-commit-hook.sh`**: Sets up the gofmt pre-commit hook
-- **`dev-check.sh`**: Runs all development checks (formatting, tests, build, examples)
+- **`dev-check.sh`**: Comprehensive Go Report Card A+ quality assurance script
 
 ### Running Development Checks
 
-Before submitting a PR, run the comprehensive check script:
+**Before submitting any PR, run the comprehensive quality check script:**
 
 ```bash
 ./scripts/dev-check.sh
 ```
 
-This will verify:
-- ✅ Go code formatting (`gofmt`)
-- ✅ All tests pass
-- ✅ No race conditions (`go test -race`)
-- ✅ Code builds successfully
-- ✅ No issues found by `go vet`
-- ✅ All examples compile with recent changes
-- ⚠️  Check for TODO/FIXME comments (warning only)
+This single script ensures your code meets **Go Report Card A+ standards** by running:
+
+#### ✅ **Core Quality Checks**
+- **Go code formatting** (`gofmt -l`)
+- **All tests pass** (`go test ./...`)
+- **Race condition detection** (`go test -race ./...`)
+- **Clean build** (`go build ./...`)
+- **Static analysis** (`go vet ./...`)
+
+#### ✅ **Advanced Quality Checks**
+- **Advanced static analysis** (`staticcheck`)
+- **Comprehensive linting** (`golangci-lint`)
+- **Cyclomatic complexity** (`gocyclo` - functions must be ≤15 complexity)
+- **Example compilation** (ensures documentation examples work)
+- **Code quality** (checks for TODO/FIXME comments)
+- **Test coverage reporting** (target: ≥80%)
+
+#### 🛠️ **Automatic Tool Installation**
+The script automatically installs required quality tools if missing:
+- `staticcheck`
+- `golangci-lint` 
+- `gocyclo`
+
+#### 📊 **Quality Summary Report**
+Upon successful completion, you'll see:
+
+```
+🎉 All Go Report Card A+ quality checks passed!
+Your code meets the highest Go quality standards and is ready for submission.
+
+Quality Summary:
+  ✓ Formatting: gofmt compliant
+  ✓ Testing: All tests pass with race detection
+  ✓ Static Analysis: go vet, staticcheck, golangci-lint clean
+  ✓ Complexity: All functions ≤15 cyclomatic complexity
+  ✓ Examples: All compile successfully
+  ✓ Code Quality: No TODO/FIXME comments
+```
+
+This ensures your contribution will earn an **A+ rating** on Go Report Card.
 
 ## Getting Help
 
