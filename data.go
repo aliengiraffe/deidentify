@@ -66,8 +66,9 @@ var (
 		"private", "public", "shared", "common", "mutual", "joint", "collective", "combined", "merged", "unified",
 	}
 	
-	// Address data for generating anonymous addresses (100+ options)
+	// Address data for generating anonymous addresses (120+ options with international variety)
 	streetNameOptions = []string{
+		// English/American/Canadian patterns
 		"Main St", "Oak Ave", "Pine Rd", "Elm Way", "Park Blvd", "First St", "Second Ave", "Third Rd", "Fourth St", "Fifth Ave",
 		"Maple Dr", "Cedar Ln", "Walnut St", "Cherry Ave", "Washington Blvd", "Lincoln Rd", "Jefferson St", "Adams Ave", "Madison Dr", "Jackson Blvd",
 		"Highland Ave", "Valley Rd", "Forest Dr", "Meadow Ln", "River St", "Lake Ave", "Sunset Blvd", "Sunrise Dr", "Hill Rd", "Mountain View Ave",
@@ -79,5 +80,13 @@ var (
 		"Beacon St", "College Rd", "University Ave", "Campus Dr", "School St", "Academy Rd", "Church Ave", "Chapel Dr", "Temple St", "Seminary Rd",
 		"Market Ave", "Commerce Dr", "Business St", "Industry Rd", "Corporate Ave", "Office Dr", "Plaza St", "Center Rd", "Town Square", "Village Green",
 		"Garden St", "Orchard Rd", "Farm Ave", "Ranch Dr", "Estate St", "Manor Rd", "Castle Ave", "Palace Dr", "Royal St", "Crown Rd",
+		// European patterns
+		"Rue de la Paix", "Avenue des Champs-Élysées", "Via Roma", "Calle Mayor", "Königstraße", "Hauptstraße", 
+		"High Street", "Baker Street", "Oxford Street", "Strand", "Gran Vía", "Passeig de Gràcia",
+		// Asian patterns
+		"Chang'an Avenue", "Nanjing Road", "Orchard Road", "Shinjuku Dori", "Ginza Dori", "Sukhumvit Road",
+		// Global/International
+		"Plaza Mayor", "Via Veneto", "Friedrichstraße", "Bond Street", "Broadway", "Champs-Élysées",
+		"Sheikh Zayed Road", "Las Ramblas", "Nevsky Prospekt", "Puerta del Sol", "Andrássy Avenue", "Khao San Road",
 	}
 )

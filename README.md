@@ -153,9 +153,20 @@ The library provides rich anonymization with:
 - 130+ diverse last names
 - 105+ fictional email domains
 - 100+ email username patterns
-- 100+ street name variations
+- 120+ street name variations with international formats
 
 This extensive variety of replacement options enhances privacy by increasing the anonymization space and reducing the likelihood of pattern recognition.
+
+## International Support
+
+The library includes support for international address formats:
+
+- North American: US and Canadian style addresses
+- European: UK, French, German, Italian, Spanish, etc.
+- Asian: Japanese, Chinese, Southeast Asian formats
+- Middle Eastern and global formats
+
+The detection patterns have been optimized to recognize common address structures across different languages and regional conventions, while the anonymization preserves format and readability.
 
 ## Contributing
 

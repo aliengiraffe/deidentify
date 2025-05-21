@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -22,21 +23,6 @@ const (
 	TypeCreditCard
 	TypeAddress
 	TypeGeneric
-)
-
-var (
-	// Regular expression patterns for finding PII
-	emailRegexPattern        = `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
-	phoneRegexPattern        = `(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`
-	ssnRegexPattern          = `\d{3}[- ]?\d{2}[- ]?\d{4}`
-	ssnSpaceRegexPattern     = `[ ]`
-	ssnHyphenRegexPattern    = `[-]`
-	ssnContextRegexPattern   = `(?i)SSN|social security`
-	creditCardRegexPattern   = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
-	nameRegexPattern         = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
-	addressWordRegexPattern  = `(?i)Street|Avenue|Road|Lane|The `
-	addressRegexPattern      = `\d+\s+[A-Za-z]+ (Street|Avenue|Road|Drive|Lane|Place|Blvd|Boulevard)`
-	phoneFormatRegexPattern  = `^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`
 )
 
 type Column struct {
@@ -137,15 +123,85 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 		return deidentified
 	})
 
+	// Handle addresses that appear in running text with context
+	// This pattern handles addresses that appear after key words/phrases like "lives at", "located at", etc.
+	contextAddressPattern := regexp.MustCompile(`(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`)
+	result = contextAddressPattern.ReplaceAllStringFunc(result, func(text string) string {
+		parts := contextAddressPattern.FindStringSubmatch(text)
+		if len(parts) < 3 {
+			return text
+		}
+		
+		prefix := parts[1]
+		address := strings.TrimSpace(parts[2])
+		
+		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
+		if err != nil {
+			return text
+		}
+		
+		return prefix + " " + deidentified
+	})
+	
+	// Process special address patterns first (that might not be caught by the main pattern)
+	// 1. Process addresses with country names (like "123 Orchard Road, Singapore")
+	specialAddr1Regex := regexp.MustCompile(specialAddressPattern1)
+	result = specialAddr1Regex.ReplaceAllStringFunc(result, func(addr string) string {
+		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
+		if err != nil {
+			return "[ADDRESS REDACTION ERROR]"
+		}
+		return deidentified
+	})
+	
+	// 2. Process addresses with city and country (like "15 Rue de Rivoli, Paris, France")
+	specialAddr2Regex := regexp.MustCompile(specialAddressPattern2)
+	result = specialAddr2Regex.ReplaceAllStringFunc(result, func(addr string) string {
+		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
+		if err != nil {
+			return "[ADDRESS REDACTION ERROR]"
+		}
+		return deidentified
+	})
+	
+	// 3. Process addresses that might have a label before them in text
+	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
+	result = specialAddr3Regex.ReplaceAllStringFunc(result, func(addr string) string {
+		parts := strings.SplitN(addr, " ", 2)
+		if len(parts) < 2 {
+			return addr
+		}
+		
+		prefix := parts[0]
+		address := strings.TrimSpace(parts[1])
+		
+		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
+		if err != nil {
+			return addr
+		}
+		
+		return prefix + " " + deidentified
+	})
+
 	// Process names (more complex, less precise)
 	// This is a simplistic approach - production systems would use NER models
 	nameRegex := regexp.MustCompile(nameRegexPattern)
 	result = nameRegex.ReplaceAllStringFunc(result, func(name string) string {
 		// Skip if it looks like an address or contains common words
 		addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-		if addressWordRegex.MatchString(name) {
+		internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
+		countryRegex := regexp.MustCompile(countryNameRegexPattern)
+		cityRegex := regexp.MustCompile(cityRegexPattern)
+		
+		// Check if this is in an address context - either by our global pattern or surrounding 
+		// content that suggests it's part of an address
+		if addressWordRegex.MatchString(name) || 
+		   internationalAddressRegex.MatchString(name) || 
+		   countryRegex.MatchString(name) || 
+		   cityRegex.MatchString(name) {
 			return name
 		}
+		
 		deidentified, err := d.deidentifyValue(name, TypeName, "name")
 		if err != nil {
 			return "[NAME REDACTION ERROR]"
@@ -153,7 +209,7 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 		return deidentified
 	})
 
-	// Process addresses (simplified approach)
+	// Process standard addresses (with or without countries/ISO codes)
 	addrRegex := regexp.MustCompile(addressRegexPattern)
 	result = addrRegex.ReplaceAllStringFunc(result, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
@@ -188,7 +244,68 @@ func (d *Deidentifier) DeidentifyName(name string) (string, error) {
 
 // DeidentifyAddress is a convenience method to deidentify a single address
 func (d *Deidentifier) DeidentifyAddress(address string) (string, error) {
-	return d.deidentifyValue(address, TypeAddress, "address")
+	// Check for a label prefix (like "European HQ:") and extract the actual address part
+	address = strings.TrimSpace(address)
+	colonIndex := strings.Index(address, ":")
+	actualAddr := address
+	if colonIndex >= 0 {
+		actualAddr = strings.TrimSpace(address[colonIndex+1:])
+	}
+	
+	// First try the special address patterns
+	specialAddr1Regex := regexp.MustCompile(specialAddressPattern1)
+	if specialAddr1Regex.MatchString(actualAddr) {
+		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
+		if err != nil {
+			return "", err
+		}
+		
+		// If there was a label, preserve it
+		if colonIndex >= 0 {
+			return address[:colonIndex+1] + " " + deidentified, nil
+		}
+		return deidentified, nil
+	}
+	
+	specialAddr2Regex := regexp.MustCompile(specialAddressPattern2)
+	if specialAddr2Regex.MatchString(actualAddr) {
+		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
+		if err != nil {
+			return "", err
+		}
+		
+		// If there was a label, preserve it
+		if colonIndex >= 0 {
+			return address[:colonIndex+1] + " " + deidentified, nil
+		}
+		return deidentified, nil
+	}
+	
+	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
+	if specialAddr3Regex.MatchString(actualAddr) {
+		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
+		if err != nil {
+			return "", err
+		}
+		
+		// If there was a label, preserve it
+		if colonIndex >= 0 {
+			return address[:colonIndex+1] + " " + deidentified, nil
+		}
+		return deidentified, nil
+	}
+	
+	// Fall back to standard address pattern
+	deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
+	if err != nil {
+		return "", err
+	}
+	
+	// If there was a label, preserve it
+	if colonIndex >= 0 {
+		return address[:colonIndex+1] + " " + deidentified, nil
+	}
+	return deidentified, nil
 }
 
 // DeidentifyCreditCard is a convenience method to deidentify a single credit card number
