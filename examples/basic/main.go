@@ -26,6 +26,7 @@ Hello,
 
 My name is Legolas Greenleaf and I need help with my quest. 
 My phone number is (555) 123-4567 and my SSN is 123-45-6789.
+My friend's social security number is 123 45 6789 and my assistant's SSN is 987654321.
 I made a payment using my credit card 4111-1111-1111-1111 yesterday.
 
 I live at 15 Woodland Realm, Mirkwood Forest, Middle-earth.
@@ -64,12 +65,20 @@ Legolas`
 	}
 	fmt.Printf("Phone: %s → %s\n", phone, redactedPhone)
 	
-	ssn := "123-45-6789"
-	redactedSSN, err := d.DeidentifySSN(ssn)
-	if err != nil {
-		log.Fatal("Failed to deidentify SSN:", err)
+	// Test different SSN formats
+	ssnFormats := []string{
+		"123-45-6789",     // With hyphens
+		"123 45 6789",     // With spaces
+		"123456789",       // Without separators
 	}
-	fmt.Printf("SSN: %s → %s\n", ssn, redactedSSN)
+	
+	for _, ssn := range ssnFormats {
+		redactedSSN, err := d.DeidentifySSN(ssn)
+		if err != nil {
+			log.Fatal("Failed to deidentify SSN:", err)
+		}
+		fmt.Printf("SSN: %s → %s\n", ssn, redactedSSN)
+	}
 	
 	address := "15 Woodland Realm, Mirkwood Forest"
 	redactedAddress, err := d.DeidentifyAddress(address)
