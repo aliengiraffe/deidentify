@@ -1,6 +1,6 @@
 # Deidentify
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/aliengiraffe/deidentify?1=1)](https://goreportcard.com/report/github.com/aliengiraffe/deidentify)
+[![Go Report Card](https://goreportcard.com/badge/github.com/aliengiraffe/deidentify?1=2)](https://goreportcard.com/report/github.com/aliengiraffe/deidentify)
 [![GoDoc](https://godoc.org/github.com/aliengiraffe/deidentify?status.svg)](https://godoc.org/github.com/aliengiraffe/deidentify)
 [![License](https://img.shields.io/github/license/aliengiraffe/deidentify.svg?1=1)](LICENSE)
 
