@@ -55,81 +55,91 @@ func (d *Deidentifier) Text(text string) (string, error) {
 		return "", nil
 	}
 
-	// Replace all PII types using regex patterns
 	result := text
+	result = d.processEmails(result)
+	result = d.processPhones(result)
+	result = d.processSSNs(result, text)
+	result = d.processCreditCards(result)
+	result = d.processContextAddresses(result)
+	result = d.processSpecialAddresses(result)
+	result = d.processNames(result)
+	result = d.processStandardAddresses(result)
 
-	// Process emails
+	return result, nil
+}
+
+// processEmails handles email deidentification
+func (d *Deidentifier) processEmails(text string) string {
 	emailRegex := regexp.MustCompile(emailRegexPattern)
-	result = emailRegex.ReplaceAllStringFunc(result, func(email string) string {
+	return emailRegex.ReplaceAllStringFunc(text, func(email string) string {
 		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
 		if err != nil {
 			return "[EMAIL REDACTION ERROR]"
 		}
 		return deidentified
 	})
+}
 
-	// Process phone numbers
+// processPhones handles phone number deidentification
+func (d *Deidentifier) processPhones(text string) string {
 	phoneRegex := regexp.MustCompile(phoneRegexPattern)
-	result = phoneRegex.ReplaceAllStringFunc(result, func(phone string) string {
+	return phoneRegex.ReplaceAllStringFunc(text, func(phone string) string {
 		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
 		if err != nil {
 			return "[PHONE REDACTION ERROR]"
 		}
 		return deidentified
 	})
+}
 
-	// Process SSNs
+// processSSNs handles SSN deidentification with context checking
+func (d *Deidentifier) processSSNs(text, originalText string) string {
 	ssnRegex := regexp.MustCompile(ssnRegexPattern)
-	result = ssnRegex.ReplaceAllStringFunc(result, func(ssn string) string {
-		// Verify it's likely an SSN, not just any 9 digits
-		ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
-		ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
-		ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
-
-		// Get the raw digits without any separators
-		rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
-
-		// Check if it's formatted like an SSN (with hyphens or spaces) or mentioned with SSN context
-		isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn)
-		hasSSNContext := ssnContextRegex.MatchString(text)
-
-		if !isFormatted && !hasSSNContext {
-			// If not formatted like an SSN and no SSN context, only detect if exactly 9 digits
-			if len(rawDigits) == 9 {
-				// Assume it's an SSN if it's exactly 9 digits
-				deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
-				if err != nil {
-					return "[SSN REDACTION ERROR]"
-				}
-				return deidentified
-			}
-			return ssn
-		}
-
-		deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
-		if err != nil {
-			return "[SSN REDACTION ERROR]"
-		}
-		return deidentified
+	return ssnRegex.ReplaceAllStringFunc(text, func(ssn string) string {
+		return d.processSSNMatch(ssn, originalText)
 	})
+}
 
-	// Process credit cards
+// processSSNMatch processes a single SSN match with validation
+func (d *Deidentifier) processSSNMatch(ssn, originalText string) string {
+	ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
+	ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
+	ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
+
+	rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
+	isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn)
+	hasSSNContext := ssnContextRegex.MatchString(originalText)
+
+	if !isFormatted && !hasSSNContext && len(rawDigits) != 9 {
+		return ssn
+	}
+
+	deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
+	if err != nil {
+		return "[SSN REDACTION ERROR]"
+	}
+	return deidentified
+}
+
+// processCreditCards handles credit card deidentification
+func (d *Deidentifier) processCreditCards(text string) string {
 	ccRegex := regexp.MustCompile(creditCardRegexPattern)
-	result = ccRegex.ReplaceAllStringFunc(result, func(cc string) string {
+	return ccRegex.ReplaceAllStringFunc(text, func(cc string) string {
 		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 		if err != nil {
 			return "[CC REDACTION ERROR]"
 		}
 		return deidentified
 	})
+}
 
-	// Handle addresses that appear in running text with context
-	// This pattern handles addresses that appear after key words/phrases like "lives at", "located at", etc.
+// processContextAddresses handles addresses with contextual clues
+func (d *Deidentifier) processContextAddresses(text string) string {
 	contextAddressPattern := regexp.MustCompile(`(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`)
-	result = contextAddressPattern.ReplaceAllStringFunc(result, func(text string) string {
-		parts := contextAddressPattern.FindStringSubmatch(text)
+	return contextAddressPattern.ReplaceAllStringFunc(text, func(match string) string {
+		parts := contextAddressPattern.FindStringSubmatch(match)
 		if len(parts) < 3 {
-			return text
+			return match
 		}
 
 		prefix := parts[1]
@@ -137,36 +147,37 @@ func (d *Deidentifier) Text(text string) (string, error) {
 
 		deidentified, err := d.deidentifyValue(address, TypeAddress, "address")
 		if err != nil {
-			return text
+			return match
 		}
 
 		return prefix + " " + deidentified
 	})
+}
 
-	// Process special address patterns first (that might not be caught by the main pattern)
-	// 1. Process addresses with country names (like "123 Orchard Road, Singapore")
-	specialAddr1Regex := regexp.MustCompile(specialAddressPattern1)
-	result = specialAddr1Regex.ReplaceAllStringFunc(result, func(addr string) string {
+// processSpecialAddresses handles special address patterns
+func (d *Deidentifier) processSpecialAddresses(text string) string {
+	text = d.processSpecialAddressPattern(text, specialAddressPattern1)
+	text = d.processSpecialAddressPattern(text, specialAddressPattern2)
+	text = d.processSpecialAddressPattern3(text)
+	return text
+}
+
+// processSpecialAddressPattern handles a single special address pattern
+func (d *Deidentifier) processSpecialAddressPattern(text, pattern string) string {
+	regex := regexp.MustCompile(pattern)
+	return regex.ReplaceAllStringFunc(text, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
 		if err != nil {
 			return "[ADDRESS REDACTION ERROR]"
 		}
 		return deidentified
 	})
+}
 
-	// 2. Process addresses with city and country (like "15 Rue de Rivoli, Paris, France")
-	specialAddr2Regex := regexp.MustCompile(specialAddressPattern2)
-	result = specialAddr2Regex.ReplaceAllStringFunc(result, func(addr string) string {
-		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
-		if err != nil {
-			return "[ADDRESS REDACTION ERROR]"
-		}
-		return deidentified
-	})
-
-	// 3. Process addresses that might have a label before them in text
+// processSpecialAddressPattern3 handles special address pattern 3 with prefix handling
+func (d *Deidentifier) processSpecialAddressPattern3(text string) string {
 	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
-	result = specialAddr3Regex.ReplaceAllStringFunc(result, func(addr string) string {
+	return specialAddr3Regex.ReplaceAllStringFunc(text, func(addr string) string {
 		parts := strings.SplitN(addr, " ", 2)
 		if len(parts) < 2 {
 			return addr
@@ -182,23 +193,13 @@ func (d *Deidentifier) Text(text string) (string, error) {
 
 		return prefix + " " + deidentified
 	})
+}
 
-	// Process names (more complex, less precise)
-	// This is a simplistic approach - production systems would use NER models
+// processNames handles name deidentification with address context checking
+func (d *Deidentifier) processNames(text string) string {
 	nameRegex := regexp.MustCompile(nameRegexPattern)
-	result = nameRegex.ReplaceAllStringFunc(result, func(name string) string {
-		// Skip if it looks like an address or contains common words
-		addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-		internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
-		countryRegex := regexp.MustCompile(countryNameRegexPattern)
-		cityRegex := regexp.MustCompile(cityRegexPattern)
-
-		// Check if this is in an address context - either by our global pattern or surrounding
-		// content that suggests it's part of an address
-		if addressWordRegex.MatchString(name) ||
-			internationalAddressRegex.MatchString(name) ||
-			countryRegex.MatchString(name) ||
-			cityRegex.MatchString(name) {
+	return nameRegex.ReplaceAllStringFunc(text, func(name string) string {
+		if d.isAddressContext(name) {
 			return name
 		}
 
@@ -208,18 +209,31 @@ func (d *Deidentifier) Text(text string) (string, error) {
 		}
 		return deidentified
 	})
+}
 
-	// Process standard addresses (with or without countries/ISO codes)
+// isAddressContext checks if a name candidate is actually part of an address
+func (d *Deidentifier) isAddressContext(name string) bool {
+	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
+	internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
+	countryRegex := regexp.MustCompile(countryNameRegexPattern)
+	cityRegex := regexp.MustCompile(cityRegexPattern)
+
+	return addressWordRegex.MatchString(name) ||
+		internationalAddressRegex.MatchString(name) ||
+		countryRegex.MatchString(name) ||
+		cityRegex.MatchString(name)
+}
+
+// processStandardAddresses handles standard address patterns
+func (d *Deidentifier) processStandardAddresses(text string) string {
 	addrRegex := regexp.MustCompile(addressRegexPattern)
-	result = addrRegex.ReplaceAllStringFunc(result, func(addr string) string {
+	return addrRegex.ReplaceAllStringFunc(text, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
 		if err != nil {
 			return "[ADDRESS REDACTION ERROR]"
 		}
 		return deidentified
 	})
-
-	return result, nil
 }
 
 // Email is a convenience method to deidentify a single email
@@ -573,89 +587,130 @@ func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]str
 		return [][]string{}, nil
 	}
 
-	// Parse optional parameters
-	var columnTypes []DataType
-	var columnNames []string
+	config, err := d.parseSlicesParameters(data, optional...)
+	if err != nil {
+		return nil, err
+	}
 
+	return d.processSliceData(data, config)
+}
+
+// slicesConfig holds the configuration for slice processing
+type slicesConfig struct {
+	columnTypes []DataType
+	columnNames []string
+	numCols     int
+}
+
+// parseSlicesParameters parses and validates the optional parameters for Slices
+func (d *Deidentifier) parseSlicesParameters(data [][]string, optional ...interface{}) (*slicesConfig, error) {
+	config := &slicesConfig{
+		numCols: len(data[0]),
+	}
+
+	if err := d.parseOptionalParameters(optional, config); err != nil {
+		return nil, err
+	}
+
+	if err := d.setDefaultColumnNames(config); err != nil {
+		return nil, err
+	}
+
+	if err := d.inferOrValidateColumnTypes(data, config); err != nil {
+		return nil, err
+	}
+
+	return config, d.validateSlicesConfig(config)
+}
+
+// parseOptionalParameters extracts columnTypes and columnNames from optional parameters
+func (d *Deidentifier) parseOptionalParameters(optional []interface{}, config *slicesConfig) error {
 	if len(optional) > 0 {
-		// First optional parameter should be columnTypes
 		if types, ok := optional[0].([]DataType); ok {
-			columnTypes = types
+			config.columnTypes = types
 		} else {
-			return nil, fmt.Errorf("first optional parameter must be []DataType")
+			return fmt.Errorf("first optional parameter must be []DataType")
 		}
 	}
 
 	if len(optional) > 1 {
-		// Second optional parameter should be columnNames
 		if names, ok := optional[1].([]string); ok {
-			columnNames = names
+			config.columnNames = names
 		} else {
-			return nil, fmt.Errorf("second optional parameter must be []string")
+			return fmt.Errorf("second optional parameter must be []string")
 		}
 	}
 
-	// Determine the number of columns from the first row
-	var numCols int
-	if len(data) > 0 {
-		numCols = len(data[0])
-	}
+	return nil
+}
 
-	// Generate default column names if not provided
-	if len(columnNames) == 0 {
-		columnNames = make([]string, numCols)
-		for i := 0; i < numCols; i++ {
-			columnNames[i] = fmt.Sprintf("column_%d", i)
+// setDefaultColumnNames generates default column names if not provided
+func (d *Deidentifier) setDefaultColumnNames(config *slicesConfig) error {
+	if len(config.columnNames) == 0 {
+		config.columnNames = make([]string, config.numCols)
+		for i := 0; i < config.numCols; i++ {
+			config.columnNames[i] = fmt.Sprintf("column_%d", i)
 		}
 	}
+	return nil
+}
 
-	// Infer column types if not provided
-	if len(columnTypes) == 0 {
+// inferOrValidateColumnTypes infers column types if not provided
+func (d *Deidentifier) inferOrValidateColumnTypes(data [][]string, config *slicesConfig) error {
+	if len(config.columnTypes) == 0 {
 		var err error
-		columnTypes, err = d.inferColumnTypes(data)
+		config.columnTypes, err = d.inferColumnTypes(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to infer column types: %w", err)
+			return fmt.Errorf("failed to infer column types: %w", err)
 		}
 	}
+	return nil
+}
 
-	// Validate that column types and names match the data structure
-	if len(columnTypes) != numCols || len(columnNames) != numCols {
-		return nil, fmt.Errorf("mismatch between data columns (%d) and provided column types (%d) or names (%d)",
-			numCols, len(columnTypes), len(columnNames))
+// validateSlicesConfig validates that configuration matches data structure
+func (d *Deidentifier) validateSlicesConfig(config *slicesConfig) error {
+	if len(config.columnTypes) != config.numCols || len(config.columnNames) != config.numCols {
+		return fmt.Errorf("mismatch between data columns (%d) and provided column types (%d) or names (%d)",
+			config.numCols, len(config.columnTypes), len(config.columnNames))
 	}
+	return nil
+}
 
-	// Create result matrix with same dimensions
+// processSliceData processes the slice data using the provided configuration
+func (d *Deidentifier) processSliceData(data [][]string, config *slicesConfig) ([][]string, error) {
 	result := make([][]string, len(data))
 
-	// Process each row
 	for i, row := range data {
-		// Create a new row with same length
-		resultRow := make([]string, len(row))
-
-		// Process each cell in the row
-		for j, value := range row {
-			if value == "" {
-				resultRow[j] = ""
-				continue
-			}
-
-			// Get the column type and name for this cell
-			colType := columnTypes[j]
-			colName := columnNames[j]
-
-			// Deidentify the value
-			deidentifiedValue, err := d.deidentifyValue(value, colType, colName)
-			if err != nil {
-				return nil, fmt.Errorf("error deidentifying row %d, column %d (%s): %w", i, j, colName, err)
-			}
-
-			resultRow[j] = deidentifiedValue
+		processedRow, err := d.processSliceRow(row, config, i)
+		if err != nil {
+			return nil, err
 		}
-
-		result[i] = resultRow
+		result[i] = processedRow
 	}
 
 	return result, nil
+}
+
+// processSliceRow processes a single row of slice data
+func (d *Deidentifier) processSliceRow(row []string, config *slicesConfig, rowIndex int) ([]string, error) {
+	resultRow := make([]string, len(row))
+
+	for j, value := range row {
+		if value == "" {
+			resultRow[j] = ""
+			continue
+		}
+
+		deidentifiedValue, err := d.deidentifyValue(value, config.columnTypes[j], config.columnNames[j])
+		if err != nil {
+			return nil, fmt.Errorf("error deidentifying row %d, column %d (%s): %w",
+				rowIndex, j, config.columnNames[j], err)
+		}
+
+		resultRow[j] = deidentifiedValue
+	}
+
+	return resultRow, nil
 }
 
 // inferColumnTypes analyzes the data to determine the most likely data type for each column
@@ -666,96 +721,139 @@ func (d *Deidentifier) inferColumnTypes(data [][]string) ([]DataType, error) {
 
 	numCols := len(data[0])
 	columnTypes := make([]DataType, numCols)
+	patterns := d.compilePatterns()
 
-	// Compile regex patterns once for efficiency
-	emailRegex := regexp.MustCompile(emailRegexPattern)
-	phoneRegex := regexp.MustCompile(phoneRegexPattern)
-	ssnRegex := regexp.MustCompile(ssnRegexPattern)
-	ccRegex := regexp.MustCompile(creditCardRegexPattern)
-	nameRegex := regexp.MustCompile(nameRegexPattern)
-	addressRegex := regexp.MustCompile(addressRegexPattern)
-	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-
-	// For each column, analyze a sample of values to determine type
 	for col := 0; col < numCols; col++ {
-		typeScores := map[DataType]int{
-			TypeEmail:      0,
-			TypePhone:      0,
-			TypeSSN:        0,
-			TypeCreditCard: 0,
-			TypeAddress:    0,
-			TypeName:       0,
-			TypeGeneric:    0,
-		}
-
-		sampleSize := len(data)
-		if sampleSize > 10 {
-			sampleSize = 10 // Sample first 10 rows for performance
-		}
-
-		validValues := 0
-
-		for row := 0; row < sampleSize; row++ {
-			if col >= len(data[row]) || data[row][col] == "" {
-				continue // Skip empty values
-			}
-
-			value := strings.TrimSpace(data[row][col])
-			if value == "" {
-				continue
-			}
-
-			validValues++
-
-			// Check each pattern and score
-			if emailRegex.MatchString(value) {
-				typeScores[TypeEmail] += 10
-			}
-			if phoneRegex.MatchString(value) {
-				typeScores[TypePhone] += 10
-			}
-			if ssnRegex.MatchString(value) {
-				typeScores[TypeSSN] += 10
-			}
-			if ccRegex.MatchString(value) {
-				typeScores[TypeCreditCard] += 10
-			}
-			if addressRegex.MatchString(value) || addressWordRegex.MatchString(value) {
-				typeScores[TypeAddress] += 10
-			}
-			if nameRegex.MatchString(value) && !addressWordRegex.MatchString(value) {
-				typeScores[TypeName] += 5 // Lower weight since names are harder to detect
-			}
-		}
-
-		// Find the type with the highest score
-		var bestType DataType = TypeGeneric
-		var maxScore int = 0
-
-		for dataType, score := range typeScores {
-			if score > maxScore {
-				maxScore = score
-				bestType = dataType
-			}
-		}
-
-		// Use the best type if we have a reasonable confidence
-		// For name detection, we use a lower threshold since it's harder to detect reliably
-		var threshold int
-		if bestType == TypeName {
-			threshold = validValues * 3 // 30% threshold for names
-		} else {
-			threshold = validValues * 5 // 50% threshold for other types
-		}
-
-		if validValues > 0 && maxScore >= threshold {
-			columnTypes[col] = bestType
-		} else {
-			columnTypes[col] = TypeGeneric
-		}
+		columnTypes[col] = d.inferSingleColumnType(data, col, patterns)
 	}
 
 	return columnTypes, nil
+}
+
+// patternSet holds compiled regex patterns for type inference
+type patternSet struct {
+	email       *regexp.Regexp
+	phone       *regexp.Regexp
+	ssn         *regexp.Regexp
+	creditCard  *regexp.Regexp
+	name        *regexp.Regexp
+	address     *regexp.Regexp
+	addressWord *regexp.Regexp
+}
+
+// compilePatterns compiles all regex patterns once for efficiency
+func (d *Deidentifier) compilePatterns() *patternSet {
+	return &patternSet{
+		email:       regexp.MustCompile(emailRegexPattern),
+		phone:       regexp.MustCompile(phoneRegexPattern),
+		ssn:         regexp.MustCompile(ssnRegexPattern),
+		creditCard:  regexp.MustCompile(creditCardRegexPattern),
+		name:        regexp.MustCompile(nameRegexPattern),
+		address:     regexp.MustCompile(addressRegexPattern),
+		addressWord: regexp.MustCompile(addressWordRegexPattern),
+	}
+}
+
+// inferSingleColumnType analyzes a single column to determine its type
+func (d *Deidentifier) inferSingleColumnType(data [][]string, col int, patterns *patternSet) DataType {
+	typeScores := d.initializeTypeScores()
+	validValues := d.scoreColumnValues(data, col, patterns, typeScores)
+	return d.selectBestType(typeScores, validValues)
+}
+
+// initializeTypeScores creates a map with zero scores for all types
+func (d *Deidentifier) initializeTypeScores() map[DataType]int {
+	return map[DataType]int{
+		TypeEmail:      0,
+		TypePhone:      0,
+		TypeSSN:        0,
+		TypeCreditCard: 0,
+		TypeAddress:    0,
+		TypeName:       0,
+		TypeGeneric:    0,
+	}
+}
+
+// scoreColumnValues analyzes values in a column and updates type scores
+func (d *Deidentifier) scoreColumnValues(data [][]string, col int, patterns *patternSet, typeScores map[DataType]int) int {
+	sampleSize := len(data)
+	if sampleSize > 10 {
+		sampleSize = 10 // Sample first 10 rows for performance
+	}
+
+	validValues := 0
+	for row := 0; row < sampleSize; row++ {
+		if d.isValidValue(data, row, col) {
+			value := strings.TrimSpace(data[row][col])
+			validValues++
+			d.scoreValue(value, patterns, typeScores)
+		}
+	}
+	return validValues
+}
+
+// isValidValue checks if a cell contains a valid value for analysis
+func (d *Deidentifier) isValidValue(data [][]string, row, col int) bool {
+	return col < len(data[row]) && data[row][col] != "" && strings.TrimSpace(data[row][col]) != ""
+}
+
+// scoreValue scores a single value against all patterns
+func (d *Deidentifier) scoreValue(value string, patterns *patternSet, typeScores map[DataType]int) {
+	if patterns.email.MatchString(value) {
+		typeScores[TypeEmail] += 10
+	}
+	if patterns.phone.MatchString(value) {
+		typeScores[TypePhone] += 10
+	}
+	if patterns.ssn.MatchString(value) {
+		typeScores[TypeSSN] += 10
+	}
+	if patterns.creditCard.MatchString(value) {
+		typeScores[TypeCreditCard] += 10
+	}
+	if patterns.address.MatchString(value) || patterns.addressWord.MatchString(value) {
+		typeScores[TypeAddress] += 10
+	}
+	if patterns.name.MatchString(value) && !patterns.addressWord.MatchString(value) {
+		typeScores[TypeName] += 5 // Lower weight since names are harder to detect
+	}
+}
+
+// selectBestType determines the best type based on scores and confidence thresholds
+func (d *Deidentifier) selectBestType(typeScores map[DataType]int, validValues int) DataType {
+	bestType, maxScore := d.findHighestScoringType(typeScores)
+
+	if validValues == 0 {
+		return TypeGeneric
+	}
+
+	threshold := d.getConfidenceThreshold(bestType, validValues)
+	if maxScore >= threshold {
+		return bestType
+	}
+	return TypeGeneric
+}
+
+// findHighestScoringType finds the type with the highest score
+func (d *Deidentifier) findHighestScoringType(typeScores map[DataType]int) (DataType, int) {
+	var bestType DataType = TypeGeneric
+	var maxScore int = 0
+
+	for dataType, score := range typeScores {
+		if score > maxScore {
+			maxScore = score
+			bestType = dataType
+		}
+	}
+	return bestType, maxScore
+}
+
+// getConfidenceThreshold returns the confidence threshold for a given type
+func (d *Deidentifier) getConfidenceThreshold(dataType DataType, validValues int) int {
+	if dataType == TypeName {
+		return validValues * 3 // 30% threshold for names
+	}
+	return validValues * 5 // 50% threshold for other types
 }
 
 // GenerateSecretKey generates a cryptographically secure random key
