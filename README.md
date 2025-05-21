@@ -117,11 +117,29 @@ func main() {
 }
 ```
 
+### Processing Slice Data
+
+```go
+// Deidentify [][]string data (CSV-like format)
+data := [][]string{
+    {"Alice Johnson", "alice@example.com", "555-123-4567"},
+    {"Bob Smith", "bob@company.org", "(555) 987-6543"},
+}
+
+columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
+columnNames := []string{"name", "email", "phone"}
+
+result, err := d.DeidentifySlices(data, columnTypes, columnNames)
+// result: [["Taylor Miller", "user4921@demo.co", "555-642-8317"], ...]
+```
+
 ## More Examples
 
 See the [examples](./examples) directory for comprehensive usage patterns:
 
 - [Basic usage](./examples/basic/main.go): Simple text deidentification
+- [Table processing](./examples/table/main.go): Structured data with multiple columns and types  
+- [Slice processing](./examples/slices/main.go): CSV-like data processing with [][]string
 - [International address handling](./examples/international/main.go): Support for addresses across different regions
 
 ## Configuration
