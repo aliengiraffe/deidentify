@@ -131,6 +131,7 @@ git commit -m "Add new feature: description"
   - Use `CamelCase` for exported functions/types
   - Use `camelCase` for internal functions/variables
   - Use descriptive names
+  - **Package naming**: Don't include package name in function names (e.g., use `Text()` not `DeidentifyText()`)
 - **Documentation**: 
   - All exported functions must have documentation comments
   - Start comments with the function name
@@ -152,9 +153,9 @@ git commit -m "Add new feature: description"
 ### Example Code Pattern
 
 ```go
-// DeidentifyExample demonstrates proper function documentation
+// Example demonstrates proper function documentation
 // and error handling patterns used in this project.
-func (d *Deidentifier) DeidentifyExample(input string) (string, error) {
+func (d *Deidentifier) Example(input string) (string, error) {
     if input == "" {
         return "", nil
     }

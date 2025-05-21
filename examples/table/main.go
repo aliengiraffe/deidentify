@@ -87,7 +87,7 @@ func main() {
 	printTable(table)
 
 	// Deidentify the table
-	deidentifiedTable, err := d.DeidentifyTable(table)
+	deidentifiedTable, err := d.Table(table)
 	if err != nil {
 		log.Fatal("Failed to deidentify table:", err)
 	}
@@ -107,7 +107,7 @@ func main() {
 		},
 	}
 
-	result2, _ := d.DeidentifyTable(table2)
+	result2, _ := d.Table(table2)
 	fmt.Printf("Same input 'Gandalf Grey' produces same output: %v\n",
 		result2.Columns[0].Values[0])
 
@@ -122,7 +122,7 @@ func main() {
 		},
 	}
 
-	result3, _ := d.DeidentifyTable(table3)
+	result3, _ := d.Table(table3)
 	fmt.Printf("Same input in different column produces different output: %v\n",
 		result3.Columns[0].Values[0])
 }

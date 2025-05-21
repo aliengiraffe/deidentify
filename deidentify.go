@@ -49,8 +49,8 @@ func NewDeidentifier(secretKey string) *Deidentifier {
 	}
 }
 
-// DeidentifyText identifies and deidentifies PII from a text string
-func (d *Deidentifier) DeidentifyText(text string) (string, error) {
+// Text identifies and deidentifies PII from a text string
+func (d *Deidentifier) Text(text string) (string, error) {
 	if text == "" {
 		return "", nil
 	}
@@ -222,28 +222,28 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	return result, nil
 }
 
-// DeidentifyEmail is a convenience method to deidentify a single email
-func (d *Deidentifier) DeidentifyEmail(email string) (string, error) {
+// Email is a convenience method to deidentify a single email
+func (d *Deidentifier) Email(email string) (string, error) {
 	return d.deidentifyValue(email, TypeEmail, "email")
 }
 
-// DeidentifyPhone is a convenience method to deidentify a single phone number
-func (d *Deidentifier) DeidentifyPhone(phone string) (string, error) {
+// Phone is a convenience method to deidentify a single phone number
+func (d *Deidentifier) Phone(phone string) (string, error) {
 	return d.deidentifyValue(phone, TypePhone, "phone")
 }
 
-// DeidentifySSN is a convenience method to deidentify a single SSN
-func (d *Deidentifier) DeidentifySSN(ssn string) (string, error) {
+// SSN is a convenience method to deidentify a single SSN
+func (d *Deidentifier) SSN(ssn string) (string, error) {
 	return d.deidentifyValue(ssn, TypeSSN, "ssn")
 }
 
-// DeidentifyName is a convenience method to deidentify a single name
-func (d *Deidentifier) DeidentifyName(name string) (string, error) {
+// Name is a convenience method to deidentify a single name
+func (d *Deidentifier) Name(name string) (string, error) {
 	return d.deidentifyValue(name, TypeName, "name")
 }
 
-// DeidentifyAddress is a convenience method to deidentify a single address
-func (d *Deidentifier) DeidentifyAddress(address string) (string, error) {
+// Address is a convenience method to deidentify a single address
+func (d *Deidentifier) Address(address string) (string, error) {
 	// Check for a label prefix (like "European HQ:") and extract the actual address part
 	address = strings.TrimSpace(address)
 	colonIndex := strings.Index(address, ":")
@@ -308,13 +308,13 @@ func (d *Deidentifier) DeidentifyAddress(address string) (string, error) {
 	return deidentified, nil
 }
 
-// DeidentifyCreditCard is a convenience method to deidentify a single credit card number
-func (d *Deidentifier) DeidentifyCreditCard(cc string) (string, error) {
+// CreditCard is a convenience method to deidentify a single credit card number
+func (d *Deidentifier) CreditCard(cc string) (string, error) {
 	return d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 }
 
-// DeidentifyTable processes an entire table
-func (d *Deidentifier) DeidentifyTable(table *Table) (*Table, error) {
+// Table processes an entire table
+func (d *Deidentifier) Table(table *Table) (*Table, error) {
 	result := &Table{
 		Columns: make([]Column, len(table.Columns)),
 	}
@@ -561,14 +561,14 @@ func (d *Deidentifier) ClearMappings() {
 	d.mappingTables = make(map[string]map[string]string)
 }
 
-// DeidentifySlices processes a slice of string slices ([][]string)
+// Slices processes a slice of string slices ([][]string)
 // Each inner slice represents a row of data
 // Optional parameters:
 //   - columnTypes: DataType for each column (will infer if not provided)
 //   - columnNames: names for each column (will generate if not provided)
 //
-// Usage: DeidentifySlices(data) or DeidentifySlices(data, columnTypes) or DeidentifySlices(data, columnTypes, columnNames)
-func (d *Deidentifier) DeidentifySlices(data [][]string, optional ...interface{}) ([][]string, error) {
+// Usage: Slices(data) or Slices(data, columnTypes) or Slices(data, columnTypes, columnNames)
+func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]string, error) {
 	if len(data) == 0 {
 		return [][]string{}, nil
 	}

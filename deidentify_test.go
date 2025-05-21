@@ -189,7 +189,7 @@ func TestTableDeidentification(t *testing.T) {
 		},
 	}
 
-	result, err := d.DeidentifyTable(table)
+	result, err := d.Table(table)
 	if err != nil {
 		t.Fatalf("Error deidentifying table: %v", err)
 	}
@@ -251,8 +251,8 @@ func TestReferentialIntegrity(t *testing.T) {
 			},
 		}
 
-		result1, _ := d.DeidentifyTable(table1)
-		result2, _ := d.DeidentifyTable(table2)
+		result1, _ := d.Table(table1)
+		result2, _ := d.Table(table2)
 
 		val1 := result1.Columns[0].Values[0]
 		val2 := result2.Columns[0].Values[0]
@@ -281,7 +281,7 @@ func TestSecretKeyGeneration(t *testing.T) {
 	}
 }
 
-func TestDeidentifyText(t *testing.T) {
+func TestText(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 
 	testCases := []struct {
@@ -340,22 +340,22 @@ func TestDeidentifyText(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := d.DeidentifyText(tc.input)
+			result, err := d.Text(tc.input)
 			if err != nil {
-				t.Fatalf("DeidentifyText() error = %v", err)
+				t.Fatalf("Text() error = %v", err)
 			}
 
 			// For empty input, check that output is empty
 			if tc.input == "" {
 				if result != "" {
-					t.Errorf("DeidentifyText() didn't return empty string for empty input, got %q", result)
+					t.Errorf("Text() didn't return empty string for empty input, got %q", result)
 				}
 				return
 			}
 
 			// Result should be different from input if input contains PII
 			if result == tc.input && len(tc.patterns) > 0 {
-				t.Errorf("DeidentifyText() returned unchanged text: %s", result)
+				t.Errorf("Text() returned unchanged text: %s", result)
 			}
 
 			// Check that the result matches expected patterns
@@ -365,7 +365,7 @@ func TestDeidentifyText(t *testing.T) {
 					t.Fatalf("Failed to match pattern: %v", err)
 				}
 				if !matched {
-					t.Errorf("DeidentifyText() result doesn't match pattern\nPattern: %s\nResult:  %s", pattern, result)
+					t.Errorf("Text() result doesn't match pattern\nPattern: %s\nResult:  %s", pattern, result)
 				}
 			}
 		})
@@ -375,40 +375,40 @@ func TestDeidentifyText(t *testing.T) {
 func TestConvenienceMethods(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 
-	// Test DeidentifyEmail
+	// Test Email
 	email := "test@example.com"
-	emailResult, err := d.DeidentifyEmail(email)
+	emailResult, err := d.Email(email)
 	if err != nil {
-		t.Fatalf("DeidentifyEmail failed: %v", err)
+		t.Fatalf("Email failed: %v", err)
 	}
 	if emailResult == email {
-		t.Errorf("DeidentifyEmail should produce different result, got: %s", emailResult)
+		t.Errorf("Email should produce different result, got: %s", emailResult)
 	}
 	if !strings.Contains(emailResult, "@") {
-		t.Errorf("DeidentifyEmail result doesn't look like an email: %s", emailResult)
+		t.Errorf("Email result doesn't look like an email: %s", emailResult)
 	}
 
-	// Test DeidentifyPhone
+	// Test Phone
 	phone := "(555) 123-4567"
-	phoneResult, err := d.DeidentifyPhone(phone)
+	phoneResult, err := d.Phone(phone)
 	if err != nil {
-		t.Fatalf("DeidentifyPhone failed: %v", err)
+		t.Fatalf("Phone failed: %v", err)
 	}
 	if phoneResult == phone {
-		t.Errorf("DeidentifyPhone should produce different result, got: %s", phoneResult)
+		t.Errorf("Phone should produce different result, got: %s", phoneResult)
 	}
 
-	// Test DeidentifySSN
+	// Test SSN
 	ssn := "123-45-6789"
-	ssnResult, err := d.DeidentifySSN(ssn)
+	ssnResult, err := d.SSN(ssn)
 	if err != nil {
-		t.Fatalf("DeidentifySSN failed: %v", err)
+		t.Fatalf("SSN failed: %v", err)
 	}
 	if ssnResult == ssn {
-		t.Errorf("DeidentifySSN should produce different result, got: %s", ssnResult)
+		t.Errorf("SSN should produce different result, got: %s", ssnResult)
 	}
 	if !regexp.MustCompile(`\d{3}-\d{2}-\d{4}`).MatchString(ssnResult) {
-		t.Errorf("DeidentifySSN result doesn't match SSN format: %s", ssnResult)
+		t.Errorf("SSN result doesn't match SSN format: %s", ssnResult)
 	}
 }
 
@@ -461,9 +461,9 @@ func BenchmarkTableDeidentification(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := d.DeidentifyTable(table)
+		_, err := d.Table(table)
 		if err != nil {
-			b.Fatalf("DeidentifyTable failed: %v", err)
+			b.Fatalf("Table failed: %v", err)
 		}
 	}
 }
@@ -477,14 +477,14 @@ Please process his payment using credit card 4111-1111-1111-1111.`
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := d.DeidentifyText(text)
+		_, err := d.Text(text)
 		if err != nil {
-			b.Fatalf("DeidentifyText failed: %v", err)
+			b.Fatalf("Text failed: %v", err)
 		}
 	}
 }
 
-func TestDeidentifySlices(t *testing.T) {
+func TestSlices(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 
 	// Test data as [][]string
@@ -499,9 +499,9 @@ func TestDeidentifySlices(t *testing.T) {
 	columnNames := []string{"name", "email", "phone", "ssn"}
 
 	// Test successful deidentification
-	result, err := d.DeidentifySlices(data, columnTypes, columnNames)
+	result, err := d.Slices(data, columnTypes, columnNames)
 	if err != nil {
-		t.Fatalf("DeidentifySlices failed: %v", err)
+		t.Fatalf("Slices failed: %v", err)
 	}
 
 	// Check result dimensions
@@ -529,9 +529,9 @@ func TestDeidentifySlices(t *testing.T) {
 	}
 
 	// Test deterministic behavior
-	result2, err := d.DeidentifySlices(data, columnTypes, columnNames)
+	result2, err := d.Slices(data, columnTypes, columnNames)
 	if err != nil {
-		t.Fatalf("Second DeidentifySlices failed: %v", err)
+		t.Fatalf("Second Slices failed: %v", err)
 	}
 
 	if result[0][0] != result2[0][0] {
@@ -542,9 +542,9 @@ func TestDeidentifySlices(t *testing.T) {
 	// Create a fresh deidentifier to ensure clean mapping table
 	d2 := NewDeidentifier("test-secret-key-3")
 	differentColumnNames := []string{"customer_name", "customer_email", "customer_phone", "customer_ssn"}
-	result3, err := d2.DeidentifySlices(data, columnTypes, differentColumnNames)
+	result3, err := d2.Slices(data, columnTypes, differentColumnNames)
 	if err != nil {
-		t.Fatalf("Third DeidentifySlices failed: %v", err)
+		t.Fatalf("Third Slices failed: %v", err)
 	}
 
 	if result[0][0] == result3[0][0] && data[0][0] != "" {
@@ -552,7 +552,7 @@ func TestDeidentifySlices(t *testing.T) {
 	}
 }
 
-func TestDeidentifySlicesInference(t *testing.T) {
+func TestSlicesInference(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 
 	// Test data with clear patterns
@@ -563,9 +563,9 @@ func TestDeidentifySlicesInference(t *testing.T) {
 	}
 
 	// Test with no parameters (should infer)
-	result, err := d.DeidentifySlices(data)
+	result, err := d.Slices(data)
 	if err != nil {
-		t.Fatalf("DeidentifySlices with inference failed: %v", err)
+		t.Fatalf("Slices with inference failed: %v", err)
 	}
 
 	if len(result) != len(data) {
@@ -583,9 +583,9 @@ func TestDeidentifySlicesInference(t *testing.T) {
 	}
 
 	// Test with empty types slice (should infer)
-	result2, err := d.DeidentifySlices(data, []DataType{})
+	result2, err := d.Slices(data, []DataType{})
 	if err != nil {
-		t.Fatalf("DeidentifySlices with empty slices failed: %v", err)
+		t.Fatalf("Slices with empty slices failed: %v", err)
 	}
 
 	if len(result2) != len(data) {
@@ -648,12 +648,12 @@ func TestInferColumnTypes(t *testing.T) {
 	}
 }
 
-func TestDeidentifySlicesErrorCases(t *testing.T) {
+func TestSlicesErrorCases(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 
 	// Test empty data
 	emptyData := [][]string{}
-	result, err := d.DeidentifySlices(emptyData)
+	result, err := d.Slices(emptyData)
 	if err != nil {
 		t.Fatalf("Empty data should not cause error: %v", err)
 	}
@@ -663,23 +663,23 @@ func TestDeidentifySlicesErrorCases(t *testing.T) {
 
 	// Test mismatched column types and names
 	data := [][]string{{"John", "john@example.com"}}
-	_, err = d.DeidentifySlices(data, []DataType{TypeName}, []string{"name", "email"})
+	_, err = d.Slices(data, []DataType{TypeName}, []string{"name", "email"})
 	if err == nil {
 		t.Error("Should error when column types don't match data columns")
 	}
 
-	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, []string{"name"})
+	_, err = d.Slices(data, []DataType{TypeName, TypeEmail}, []string{"name"})
 	if err == nil {
 		t.Error("Should error when column names don't match data columns")
 	}
 
 	// Test invalid parameter types
-	_, err = d.DeidentifySlices(data, "invalid")
+	_, err = d.Slices(data, "invalid")
 	if err == nil {
 		t.Error("Should error when first parameter is not []DataType")
 	}
 
-	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, 123)
+	_, err = d.Slices(data, []DataType{TypeName, TypeEmail}, 123)
 	if err == nil {
 		t.Error("Should error when second parameter is not []string")
 	}
@@ -699,9 +699,9 @@ func BenchmarkSlicesDeidentification(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := d.DeidentifySlices(data, columnTypes, columnNames)
+		_, err := d.Slices(data, columnTypes, columnNames)
 		if err != nil {
-			b.Fatalf("DeidentifySlices failed: %v", err)
+			b.Fatalf("Slices failed: %v", err)
 		}
 	}
 }

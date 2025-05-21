@@ -56,7 +56,7 @@ func main() {
 	dataRows := customerData[1:]
 
 	// Deidentify the data with explicit types and names
-	deidentifiedData, err := d.DeidentifySlices(dataRows, columnTypes, columnNames)
+	deidentifiedData, err := d.Slices(dataRows, columnTypes, columnNames)
 	if err != nil {
 		log.Fatal("Failed to deidentify data:", err)
 	}
@@ -73,8 +73,8 @@ func main() {
 
 	// Same data processed again should produce identical results
 	sampleRow := [][]string{{"Alice Johnson", "alice.johnson@techcorp.com", "+1 (555) 123-4567", "123-45-6789", "123 Oak Street, Portland, OR"}}
-	result1, _ := d.DeidentifySlices(sampleRow, columnTypes, columnNames)
-	result2, _ := d.DeidentifySlices(sampleRow, columnTypes, columnNames)
+	result1, _ := d.Slices(sampleRow, columnTypes, columnNames)
+	result2, _ := d.Slices(sampleRow, columnTypes, columnNames)
 
 	fmt.Printf("First run:  %v\n", result1[0])
 	fmt.Printf("Second run: %v\n", result2[0])
@@ -94,7 +94,7 @@ func main() {
 		"employee_address", // Different from "customer_address"
 	}
 
-	result3, _ := d2.DeidentifySlices(sampleRow, columnTypes, differentColumnNames)
+	result3, _ := d2.Slices(sampleRow, columnTypes, differentColumnNames)
 
 	fmt.Printf("Customer context: %s\n", result1[0][0])
 	fmt.Printf("Employee context: %s\n", result3[0][0])
@@ -120,7 +120,7 @@ func main() {
 		}
 
 		batch := allData[i:end]
-		deidentifiedBatch, err := d.DeidentifySlices(batch, columnTypes, columnNames)
+		deidentifiedBatch, err := d.Slices(batch, columnTypes, columnNames)
 		if err != nil {
 			log.Printf("Error processing batch %d: %v", i/batchSize+1, err)
 			continue
@@ -143,7 +143,7 @@ func main() {
 	}
 
 	// Call with no parameters - types and names will be inferred
-	autoResult, err := d.DeidentifySlices(autoData)
+	autoResult, err := d.Slices(autoData)
 	if err != nil {
 		log.Printf("Auto inference failed: %v", err)
 		return

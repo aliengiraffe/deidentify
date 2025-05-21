@@ -53,7 +53,7 @@ func main() {
     text := `Contact Frodo Baggins at frodo.baggins@shire.me or (555) 123-4567.
 His SSN is 123-45-6789 and he lives at 1 Bagshot Row, Hobbiton.`
 
-    redacted, err := d.DeidentifyText(text)
+    redacted, err := d.Text(text)
     if err != nil {
         log.Fatal("Failed to deidentify text:", err)
     }
@@ -102,7 +102,7 @@ func main() {
     }
     
     // Deidentify the table
-    result, err := d.DeidentifyTable(table)
+    result, err := d.Table(table)
     if err != nil {
         log.Fatal("Failed to deidentify table:", err)
     }
@@ -127,7 +127,7 @@ data := [][]string{
 }
 
 // Option 1: Automatic type inference (recommended)
-result, err := d.DeidentifySlices(data)
+result, err := d.Slices(data)
 if err != nil {
     log.Fatal("Failed to deidentify:", err)
 }
@@ -136,11 +136,11 @@ if err != nil {
 
 // Option 2: Explicit column types only
 columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
-result, err = d.DeidentifySlices(data, columnTypes)
+result, err = d.Slices(data, columnTypes)
 
 // Option 3: Both explicit types and custom column names
 columnNames := []string{"customer_name", "customer_email", "customer_phone"}
-result, err = d.DeidentifySlices(data, columnTypes, columnNames)
+result, err = d.Slices(data, columnTypes, columnNames)
 ```
 
 ## More Examples

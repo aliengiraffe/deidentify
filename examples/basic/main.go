@@ -35,7 +35,7 @@ Thanks,
 Legolas`
 
 	// Simple deidentification
-	redacted, err := d.DeidentifyText(text)
+	redacted, err := d.Text(text)
 	if err != nil {
 		log.Fatal("Failed to deidentify text:", err)
 	}
@@ -52,14 +52,14 @@ Legolas`
 	fmt.Println("--------------------------------------")
 
 	email := "legolas@mirkwood.elf"
-	redactedEmail, err := d.DeidentifyEmail(email)
+	redactedEmail, err := d.Email(email)
 	if err != nil {
 		log.Fatal("Failed to deidentify email:", err)
 	}
 	fmt.Printf("Email: %s → %s\n", email, redactedEmail)
 
 	phone := "(555) 123-4567"
-	redactedPhone, err := d.DeidentifyPhone(phone)
+	redactedPhone, err := d.Phone(phone)
 	if err != nil {
 		log.Fatal("Failed to deidentify phone:", err)
 	}
@@ -73,7 +73,7 @@ Legolas`
 	}
 
 	for _, ssn := range ssnFormats {
-		redactedSSN, err := d.DeidentifySSN(ssn)
+		redactedSSN, err := d.SSN(ssn)
 		if err != nil {
 			log.Fatal("Failed to deidentify SSN:", err)
 		}
@@ -81,14 +81,14 @@ Legolas`
 	}
 
 	address := "15 Woodland Realm, Mirkwood Forest"
-	redactedAddress, err := d.DeidentifyAddress(address)
+	redactedAddress, err := d.Address(address)
 	if err != nil {
 		log.Fatal("Failed to deidentify address:", err)
 	}
 	fmt.Printf("Address: %s → %s\n", address, redactedAddress)
 
 	name := "Legolas Greenleaf"
-	redactedName, err := d.DeidentifyName(name)
+	redactedName, err := d.Name(name)
 	if err != nil {
 		log.Fatal("Failed to deidentify name:", err)
 	}
@@ -98,7 +98,7 @@ Legolas`
 	fmt.Println("\nConsistency demonstration:")
 	fmt.Println("--------------------------------------")
 	anotherEmail := "legolas@mirkwood.elf" // Same email as before
-	redactedAgain, _ := d.DeidentifyEmail(anotherEmail)
+	redactedAgain, _ := d.Email(anotherEmail)
 	fmt.Printf("Same input produces same output: %v\n",
 		redactedEmail == redactedAgain)
 
@@ -112,21 +112,21 @@ Legolas`
 	fmt.Println("Names:")
 	for i := 0; i < 5; i++ {
 		sampleName := fmt.Sprintf("Sample Person %d", i)
-		redacted, _ := d2.DeidentifyName(sampleName)
+		redacted, _ := d2.Name(sampleName)
 		fmt.Printf("  %s → %s\n", sampleName, redacted)
 	}
 
 	fmt.Println("\nEmails:")
 	for i := 0; i < 5; i++ {
 		sampleEmail := fmt.Sprintf("person%d@example.com", i)
-		redacted, _ := d2.DeidentifyEmail(sampleEmail)
+		redacted, _ := d2.Email(sampleEmail)
 		fmt.Printf("  %s → %s\n", sampleEmail, redacted)
 	}
 
 	fmt.Println("\nAddresses:")
 	for i := 0; i < 5; i++ {
 		sampleAddress := fmt.Sprintf("%d Example Street", 100+i)
-		redacted, _ := d2.DeidentifyAddress(sampleAddress)
+		redacted, _ := d2.Address(sampleAddress)
 		fmt.Printf("  %s → %s\n", sampleAddress, redacted)
 	}
 }

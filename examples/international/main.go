@@ -49,7 +49,7 @@ func main() {
 	}
 
 	for _, address := range specificExamples {
-		redacted, err := d.DeidentifyAddress(address)
+		redacted, err := d.Address(address)
 		if err != nil {
 			fmt.Printf("Error processing '%s': %v\n", address, err)
 			continue
@@ -62,7 +62,7 @@ func main() {
 	fmt.Println("OTHER INTERNATIONAL EXAMPLES:")
 	fmt.Println("----------------------------")
 	for _, address := range addresses {
-		redacted, err := d.DeidentifyAddress(address)
+		redacted, err := d.Address(address)
 		if err != nil {
 			fmt.Printf("Error processing '%s': %v\n", address, err)
 			continue
@@ -87,7 +87,7 @@ Please contact us at contact@example.com or call our main line at (555) 123-4567
 	fmt.Println(text)
 	fmt.Println()
 
-	redactedText, err := d.DeidentifyText(text)
+	redactedText, err := d.Text(text)
 	if err != nil {
 		log.Fatal("Failed to deidentify text:", err)
 	}
