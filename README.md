@@ -1,8 +1,8 @@
 # Deidentify
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/aliengiraffe/deidentify)](https://goreportcard.com/report/github.com/aliengiraffe/deidentify)
-[![GoDoc](https://godoc.org/github.com/aliengiraffe/deidentify?status.svg)](https://godoc.org/github.com/aliengiraffe/deidentify)
-[![License](https://img.shields.io/github/license/aliengiraffe/deidentify.svg)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/aliengiraffe/deidentify?1=1)](https://goreportcard.com/report/github.com/aliengiraffe/deidentify)
+[![GoDoc](https://godoc.org/github.com/aliengiraffe/deidentify?status.svg?1=1)](https://godoc.org/github.com/aliengiraffe/deidentify)
+[![License](https://img.shields.io/github/license/aliengiraffe/deidentify.svg?1=1)](LICENSE)
 
 A Go library for detecting and removing personally identifiable information (PII) from text and structured data.
 
