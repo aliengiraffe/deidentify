@@ -29,7 +29,6 @@ var (
 	// Regular expression patterns for finding PII
 	emailRegexPattern               = `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
 	phoneRegexPattern               = `(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`
-	ssnRegexPattern                 = `\d{3}[-]?\d{2}[-]?\d{4}`
 	hyphenRegexPattern              = `-`
 	
   ssnRegexPattern                 = `\d{3}[- ]?\d{2}[- ]?\d{4}`
