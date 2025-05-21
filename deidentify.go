@@ -563,11 +563,35 @@ func (d *Deidentifier) ClearMappings() {
 
 // DeidentifySlices processes a slice of string slices ([][]string)
 // Each inner slice represents a row of data
-// The columnTypes parameter specifies the DataType for each column (optional - will infer if nil)
-// The columnNames parameter provides names for each column (optional - will generate if nil)
-func (d *Deidentifier) DeidentifySlices(data [][]string, columnTypes []DataType, columnNames []string) ([][]string, error) {
+// Optional parameters:
+//   - columnTypes: DataType for each column (will infer if not provided)
+//   - columnNames: names for each column (will generate if not provided)
+// Usage: DeidentifySlices(data) or DeidentifySlices(data, columnTypes) or DeidentifySlices(data, columnTypes, columnNames)
+func (d *Deidentifier) DeidentifySlices(data [][]string, optional ...interface{}) ([][]string, error) {
 	if len(data) == 0 {
 		return [][]string{}, nil
+	}
+
+	// Parse optional parameters
+	var columnTypes []DataType
+	var columnNames []string
+	
+	if len(optional) > 0 {
+		// First optional parameter should be columnTypes
+		if types, ok := optional[0].([]DataType); ok {
+			columnTypes = types
+		} else {
+			return nil, fmt.Errorf("first optional parameter must be []DataType")
+		}
+	}
+	
+	if len(optional) > 1 {
+		// Second optional parameter should be columnNames
+		if names, ok := optional[1].([]string); ok {
+			columnNames = names
+		} else {
+			return nil, fmt.Errorf("second optional parameter must be []string")
+		}
 	}
 
 	// Determine the number of columns from the first row

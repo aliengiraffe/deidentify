@@ -562,8 +562,8 @@ func TestDeidentifySlicesInference(t *testing.T) {
 		{"bob@test.co.uk", "Bob Johnson", "555.111.2222", "456-78-9012", "789 Pine Drive"},
 	}
 	
-	// Test with nil parameters (should infer)
-	result, err := d.DeidentifySlices(data, nil, nil)
+	// Test with no parameters (should infer)
+	result, err := d.DeidentifySlices(data)
 	if err != nil {
 		t.Fatalf("DeidentifySlices with inference failed: %v", err)
 	}
@@ -582,8 +582,8 @@ func TestDeidentifySlicesInference(t *testing.T) {
 		t.Error("Phone should be deidentified")
 	}
 	
-	// Test with empty slices (should infer)
-	result2, err := d.DeidentifySlices(data, []DataType{}, []string{})
+	// Test with empty types slice (should infer)
+	result2, err := d.DeidentifySlices(data, []DataType{})
 	if err != nil {
 		t.Fatalf("DeidentifySlices with empty slices failed: %v", err)
 	}
@@ -653,7 +653,7 @@ func TestDeidentifySlicesErrorCases(t *testing.T) {
 	
 	// Test empty data
 	emptyData := [][]string{}
-	result, err := d.DeidentifySlices(emptyData, []DataType{}, []string{})
+	result, err := d.DeidentifySlices(emptyData)
 	if err != nil {
 		t.Fatalf("Empty data should not cause error: %v", err)
 	}
@@ -671,6 +671,17 @@ func TestDeidentifySlicesErrorCases(t *testing.T) {
 	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, []string{"name"})
 	if err == nil {
 		t.Error("Should error when column names don't match data columns")
+	}
+	
+	// Test invalid parameter types
+	_, err = d.DeidentifySlices(data, "invalid")
+	if err == nil {
+		t.Error("Should error when first parameter is not []DataType")
+	}
+	
+	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, 123)
+	if err == nil {
+		t.Error("Should error when second parameter is not []string")
 	}
 }
 

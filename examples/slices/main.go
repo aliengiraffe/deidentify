@@ -142,8 +142,8 @@ func main() {
 		{"bob@test.co.uk", "Bob Johnson", "555.111.2222", "456-78-9012"},
 	}
 	
-	// Call with nil parameters - types and names will be inferred
-	autoResult, err := d.DeidentifySlices(autoData, nil, nil)
+	// Call with no parameters - types and names will be inferred
+	autoResult, err := d.DeidentifySlices(autoData)
 	if err != nil {
 		log.Printf("Auto inference failed: %v", err)
 		return

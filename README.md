@@ -131,8 +131,8 @@ columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, 
 columnNames := []string{"name", "email", "phone"}
 result, err := d.DeidentifySlices(data, columnTypes, columnNames)
 
-// Option 2: Automatic type inference (columnTypes and columnNames can be nil)
-result, err := d.DeidentifySlices(data, nil, nil)
+// Option 2: Automatic type inference 
+result, err := d.DeidentifySlices(data)
 // Types are automatically detected based on data patterns
 ```
 
