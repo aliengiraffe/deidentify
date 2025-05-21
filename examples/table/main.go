@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	
-	"github.com/aliengiraffe/deidentify" 
+
+	"github.com/aliengiraffe/deidentify"
 )
 
 func main() {
@@ -13,10 +13,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to generate secret key:", err)
 	}
-	
+
 	// Create deidentifier
 	d := deidentify.NewDeidentifier(secretKey)
-	
+
 	// Example table with mixed data types
 	table := &deidentify.Table{
 		Columns: []deidentify.Column{
@@ -25,7 +25,7 @@ func main() {
 				DataType: deidentify.TypeName,
 				Values: []interface{}{
 					"Gandalf Grey",
-					"Galadriel Lothlorien", 
+					"Galadriel Lothlorien",
 					"Elrond Halfelven",
 					nil, // Handle nil values
 				},
@@ -82,19 +82,19 @@ func main() {
 			},
 		},
 	}
-	
+
 	fmt.Println("Original Data:")
 	printTable(table)
-	
+
 	// Deidentify the table
 	deidentifiedTable, err := d.DeidentifyTable(table)
 	if err != nil {
 		log.Fatal("Failed to deidentify table:", err)
 	}
-	
+
 	fmt.Println("\nDeidentified Data:")
 	printTable(deidentifiedTable)
-	
+
 	// Demonstrate deterministic behavior
 	fmt.Println("\nDeterministic Test:")
 	table2 := &deidentify.Table{
@@ -106,11 +106,11 @@ func main() {
 			},
 		},
 	}
-	
+
 	result2, _ := d.DeidentifyTable(table2)
-	fmt.Printf("Same input 'Gandalf Grey' produces same output: %v\n", 
+	fmt.Printf("Same input 'Gandalf Grey' produces same output: %v\n",
 		result2.Columns[0].Values[0])
-	
+
 	// Demonstrate different column names produce different mappings
 	table3 := &deidentify.Table{
 		Columns: []deidentify.Column{
@@ -121,9 +121,9 @@ func main() {
 			},
 		},
 	}
-	
+
 	result3, _ := d.DeidentifyTable(table3)
-	fmt.Printf("Same input in different column produces different output: %v\n", 
+	fmt.Printf("Same input in different column produces different output: %v\n",
 		result3.Columns[0].Values[0])
 }
 
@@ -133,13 +133,13 @@ func printTable(table *deidentify.Table) {
 		fmt.Printf("%-20s", col.Name)
 	}
 	fmt.Println()
-	
+
 	// Print separator
 	for range table.Columns {
 		fmt.Printf("%-20s", "--------------------")
 	}
 	fmt.Println()
-	
+
 	// Print data rows
 	if len(table.Columns) > 0 {
 		numRows := len(table.Columns[0].Values)

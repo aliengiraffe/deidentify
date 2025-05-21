@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+
 	"github.com/aliengiraffe/deidentify"
 )
 
@@ -13,10 +13,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to generate secret key:", err)
 	}
-	
+
 	// Create a new deidentifier with default options
 	d := deidentify.NewDeidentifier(secretKey)
-	
+
 	// Example text containing various PII
 	text := `From: Legolas Greenleaf <legolas@mirkwood.elf>
 To: White Council Support
@@ -39,39 +39,39 @@ Legolas`
 	if err != nil {
 		log.Fatal("Failed to deidentify text:", err)
 	}
-	
+
 	fmt.Println("Original text:")
 	fmt.Println("--------------------------------------")
 	fmt.Println(text)
 	fmt.Println("\nDeidentified text:")
 	fmt.Println("--------------------------------------")
 	fmt.Println(redacted)
-	
+
 	// Demonstrate type-specific deidentification
 	fmt.Println("\nType-specific deidentification:")
 	fmt.Println("--------------------------------------")
-	
+
 	email := "legolas@mirkwood.elf"
 	redactedEmail, err := d.DeidentifyEmail(email)
 	if err != nil {
 		log.Fatal("Failed to deidentify email:", err)
 	}
 	fmt.Printf("Email: %s → %s\n", email, redactedEmail)
-	
+
 	phone := "(555) 123-4567"
 	redactedPhone, err := d.DeidentifyPhone(phone)
 	if err != nil {
 		log.Fatal("Failed to deidentify phone:", err)
 	}
 	fmt.Printf("Phone: %s → %s\n", phone, redactedPhone)
-	
+
 	// Test different SSN formats
 	ssnFormats := []string{
-		"123-45-6789",     // With hyphens
-		"123 45 6789",     // With spaces
-		"123456789",       // Without separators
+		"123-45-6789", // With hyphens
+		"123 45 6789", // With spaces
+		"123456789",   // Without separators
 	}
-	
+
 	for _, ssn := range ssnFormats {
 		redactedSSN, err := d.DeidentifySSN(ssn)
 		if err != nil {
@@ -79,50 +79,50 @@ Legolas`
 		}
 		fmt.Printf("SSN: %s → %s\n", ssn, redactedSSN)
 	}
-	
+
 	address := "15 Woodland Realm, Mirkwood Forest"
 	redactedAddress, err := d.DeidentifyAddress(address)
 	if err != nil {
 		log.Fatal("Failed to deidentify address:", err)
 	}
 	fmt.Printf("Address: %s → %s\n", address, redactedAddress)
-	
+
 	name := "Legolas Greenleaf"
 	redactedName, err := d.DeidentifyName(name)
 	if err != nil {
 		log.Fatal("Failed to deidentify name:", err)
 	}
 	fmt.Printf("Name: %s → %s\n", name, redactedName)
-	
+
 	// Demonstrating consistency - same input produces same output
 	fmt.Println("\nConsistency demonstration:")
 	fmt.Println("--------------------------------------")
 	anotherEmail := "legolas@mirkwood.elf" // Same email as before
 	redactedAgain, _ := d.DeidentifyEmail(anotherEmail)
-	fmt.Printf("Same input produces same output: %v\n", 
+	fmt.Printf("Same input produces same output: %v\n",
 		redactedEmail == redactedAgain)
-		
+
 	// Demonstrate the variety of generated values
 	fmt.Println("\nDemonstrating data variety:")
 	fmt.Println("--------------------------------------")
-	
+
 	// Create another deidentifier with a different key
 	d2 := deidentify.NewDeidentifier("different-secret-key")
-	
+
 	fmt.Println("Names:")
 	for i := 0; i < 5; i++ {
 		sampleName := fmt.Sprintf("Sample Person %d", i)
 		redacted, _ := d2.DeidentifyName(sampleName)
 		fmt.Printf("  %s → %s\n", sampleName, redacted)
 	}
-	
+
 	fmt.Println("\nEmails:")
 	for i := 0; i < 5; i++ {
 		sampleEmail := fmt.Sprintf("person%d@example.com", i)
 		redacted, _ := d2.DeidentifyEmail(sampleEmail)
 		fmt.Printf("  %s → %s\n", sampleEmail, redacted)
 	}
-	
+
 	fmt.Println("\nAddresses:")
 	for i := 0; i < 5; i++ {
 		sampleAddress := fmt.Sprintf("%d Example Street", 100+i)

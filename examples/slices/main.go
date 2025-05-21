@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	
+
 	"github.com/aliengiraffe/deidentify"
 )
 
@@ -14,10 +14,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to generate secret key:", err)
 	}
-	
+
 	// Create deidentifier
 	d := deidentify.NewDeidentifier(secretKey)
-	
+
 	// Example CSV-like data as [][]string
 	// This could come from reading a CSV file, database query, etc.
 	customerData := [][]string{
@@ -30,7 +30,7 @@ func main() {
 		{"", "", "", "", ""}, // Handle empty row
 		{"David Wilson", "david.wilson@company.net", "555.333.4444", "321-54-9876", "321 Elm Street, Austin, TX"},
 	}
-	
+
 	// Define column types (skip header row)
 	columnTypes := []deidentify.DataType{
 		deidentify.TypeName,
@@ -39,122 +39,122 @@ func main() {
 		deidentify.TypeSSN,
 		deidentify.TypeAddress,
 	}
-	
+
 	// Define column names for consistent mapping
 	columnNames := []string{
 		"customer_name",
-		"customer_email", 
+		"customer_email",
 		"customer_phone",
 		"customer_ssn",
 		"customer_address",
 	}
-	
+
 	fmt.Println("Original Customer Data:")
 	printSlices(customerData)
-	
+
 	// Extract data rows (skip header)
 	dataRows := customerData[1:]
-	
+
 	// Deidentify the data with explicit types and names
 	deidentifiedData, err := d.DeidentifySlices(dataRows, columnTypes, columnNames)
 	if err != nil {
 		log.Fatal("Failed to deidentify data:", err)
 	}
-	
+
 	// Reconstruct with header
 	result := [][]string{customerData[0]} // Keep original header
 	result = append(result, deidentifiedData...)
-	
+
 	fmt.Println("\nDeidentified Customer Data:")
 	printSlices(result)
-	
+
 	// Demonstrate deterministic behavior
 	fmt.Println("\n=== Deterministic Behavior Demo ===")
-	
+
 	// Same data processed again should produce identical results
 	sampleRow := [][]string{{"Alice Johnson", "alice.johnson@techcorp.com", "+1 (555) 123-4567", "123-45-6789", "123 Oak Street, Portland, OR"}}
 	result1, _ := d.DeidentifySlices(sampleRow, columnTypes, columnNames)
 	result2, _ := d.DeidentifySlices(sampleRow, columnTypes, columnNames)
-	
+
 	fmt.Printf("First run:  %v\n", result1[0])
 	fmt.Printf("Second run: %v\n", result2[0])
 	fmt.Printf("Identical results: %t\n", equalSlices(result1[0], result2[0]))
-	
+
 	// Different column names produce different results
 	fmt.Println("\n=== Column-Specific Mapping Demo ===")
-	
+
 	// Create new deidentifier for clean test
 	d2 := deidentify.NewDeidentifier(secretKey)
-	
+
 	differentColumnNames := []string{
-		"employee_name",     // Different from "customer_name"
-		"employee_email",    // Different from "customer_email"  
-		"employee_phone",    // Different from "customer_phone"
-		"employee_ssn",      // Different from "customer_ssn"
-		"employee_address",  // Different from "customer_address"
+		"employee_name",    // Different from "customer_name"
+		"employee_email",   // Different from "customer_email"
+		"employee_phone",   // Different from "customer_phone"
+		"employee_ssn",     // Different from "customer_ssn"
+		"employee_address", // Different from "customer_address"
 	}
-	
+
 	result3, _ := d2.DeidentifySlices(sampleRow, columnTypes, differentColumnNames)
-	
+
 	fmt.Printf("Customer context: %s\n", result1[0][0])
 	fmt.Printf("Employee context: %s\n", result3[0][0])
 	fmt.Printf("Different results: %t\n", result1[0][0] != result3[0][0])
-	
+
 	// Practical use case: Processing CSV-like data in batches
 	fmt.Println("\n=== Batch Processing Demo ===")
-	
+
 	// Simulate processing data in chunks (useful for large datasets)
 	allData := [][]string{
 		{"John Doe", "john@example.com", "555-0001", "111-11-1111", "100 First St"},
 		{"Jane Doe", "jane@example.com", "555-0002", "222-22-2222", "200 Second St"},
 		{"Jim Doe", "jim@example.com", "555-0003", "333-33-3333", "300 Third St"},
 	}
-	
+
 	batchSize := 2
 	var processedBatches [][]string
-	
+
 	for i := 0; i < len(allData); i += batchSize {
 		end := i + batchSize
 		if end > len(allData) {
 			end = len(allData)
 		}
-		
+
 		batch := allData[i:end]
 		deidentifiedBatch, err := d.DeidentifySlices(batch, columnTypes, columnNames)
 		if err != nil {
 			log.Printf("Error processing batch %d: %v", i/batchSize+1, err)
 			continue
 		}
-		
+
 		processedBatches = append(processedBatches, deidentifiedBatch...)
 		fmt.Printf("Processed batch %d: %d rows\n", i/batchSize+1, len(deidentifiedBatch))
 	}
-	
+
 	fmt.Printf("Total processed: %d rows\n", len(processedBatches))
-	
+
 	// Demonstrate automatic type inference
 	fmt.Println("\n=== Automatic Type Inference Demo ===")
-	
+
 	// Data with clear patterns - no need to specify types or names
 	autoData := [][]string{
 		{"john.doe@example.com", "John Doe", "555-123-4567", "123-45-6789"},
 		{"jane.smith@company.org", "Jane Smith", "(555) 987-6543", "987-65-4321"},
 		{"bob@test.co.uk", "Bob Johnson", "555.111.2222", "456-78-9012"},
 	}
-	
+
 	// Call with no parameters - types and names will be inferred
 	autoResult, err := d.DeidentifySlices(autoData)
 	if err != nil {
 		log.Printf("Auto inference failed: %v", err)
 		return
 	}
-	
+
 	fmt.Println("Original data (auto-inference):")
 	printSlices(autoData)
-	
+
 	fmt.Println("\nDeidentified data (auto-inferred types):")
 	printSlices(autoResult)
-	
+
 	fmt.Println("✓ Types automatically detected: Email, Name, Phone, SSN")
 }
 
@@ -163,7 +163,7 @@ func printSlices(data [][]string) {
 		fmt.Println("(empty)")
 		return
 	}
-	
+
 	// Calculate column widths for nice formatting
 	colWidths := make([]int, len(data[0]))
 	for _, row := range data {
@@ -173,17 +173,17 @@ func printSlices(data [][]string) {
 			}
 		}
 	}
-	
+
 	// Ensure minimum width
 	for i := range colWidths {
 		if colWidths[i] < 15 {
 			colWidths[i] = 15
 		}
 	}
-	
+
 	// Print header separator
 	printSeparator(colWidths)
-	
+
 	// Print each row
 	for i, row := range data {
 		fmt.Print("| ")
@@ -194,13 +194,13 @@ func printSlices(data [][]string) {
 			fmt.Printf("%-*s | ", colWidths[j], truncate(cell, colWidths[j]))
 		}
 		fmt.Println()
-		
+
 		// Print separator after header
 		if i == 0 {
 			printSeparator(colWidths)
 		}
 	}
-	
+
 	// Print footer separator
 	printSeparator(colWidths)
 }
