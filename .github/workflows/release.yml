@@ -89,7 +89,10 @@ jobs:
           go-version: '1.24.x'
       
       - name: Publish Go module
+        env:
+          GOPRIVATE: github.com/aliengiraffe/*
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This sets up git to use the token for authentication
         run: |
-          # GOPROXY will pick up new module version automatically
-          # We ensure the tag is properly formatted and has associated code
+          git config --global url."https://${GITHUB_TOKEN}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
           GOPROXY=proxy.golang.org go list -m github.com/aliengiraffe/deidentify@${{ github.ref_name }}
