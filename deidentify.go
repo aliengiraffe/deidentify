@@ -563,22 +563,34 @@ func (d *Deidentifier) ClearMappings() {
 
 // DeidentifySlices processes a slice of string slices ([][]string)
 // Each inner slice represents a row of data
-// The columnTypes parameter specifies the DataType for each column
-// The columnNames parameter provides names for each column (used for consistent mapping)
+// The columnTypes parameter specifies the DataType for each column (optional - will infer if nil)
+// The columnNames parameter provides names for each column (optional - will generate if nil)
 func (d *Deidentifier) DeidentifySlices(data [][]string, columnTypes []DataType, columnNames []string) ([][]string, error) {
 	if len(data) == 0 {
 		return [][]string{}, nil
-	}
-
-	// Validate input parameters
-	if len(columnTypes) == 0 || len(columnNames) == 0 {
-		return nil, fmt.Errorf("column types and names must be provided")
 	}
 
 	// Determine the number of columns from the first row
 	var numCols int
 	if len(data) > 0 {
 		numCols = len(data[0])
+	}
+
+	// Generate default column names if not provided
+	if columnNames == nil || len(columnNames) == 0 {
+		columnNames = make([]string, numCols)
+		for i := 0; i < numCols; i++ {
+			columnNames[i] = fmt.Sprintf("column_%d", i)
+		}
+	}
+
+	// Infer column types if not provided
+	if columnTypes == nil || len(columnTypes) == 0 {
+		var err error
+		columnTypes, err = d.inferColumnTypes(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to infer column types: %w", err)
+		}
 	}
 
 	// Validate that column types and names match the data structure
@@ -619,6 +631,106 @@ func (d *Deidentifier) DeidentifySlices(data [][]string, columnTypes []DataType,
 	}
 
 	return result, nil
+}
+
+// inferColumnTypes analyzes the data to determine the most likely data type for each column
+func (d *Deidentifier) inferColumnTypes(data [][]string) ([]DataType, error) {
+	if len(data) == 0 {
+		return []DataType{}, nil
+	}
+
+	numCols := len(data[0])
+	columnTypes := make([]DataType, numCols)
+	
+	// Compile regex patterns once for efficiency
+	emailRegex := regexp.MustCompile(emailRegexPattern)
+	phoneRegex := regexp.MustCompile(phoneRegexPattern)
+	ssnRegex := regexp.MustCompile(ssnRegexPattern)
+	ccRegex := regexp.MustCompile(creditCardRegexPattern)
+	nameRegex := regexp.MustCompile(nameRegexPattern)
+	addressRegex := regexp.MustCompile(addressRegexPattern)
+	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
+	
+	// For each column, analyze a sample of values to determine type
+	for col := 0; col < numCols; col++ {
+		typeScores := map[DataType]int{
+			TypeEmail:      0,
+			TypePhone:      0,
+			TypeSSN:        0,
+			TypeCreditCard: 0,
+			TypeAddress:    0,
+			TypeName:       0,
+			TypeGeneric:    0,
+		}
+		
+		sampleSize := len(data)
+		if sampleSize > 10 {
+			sampleSize = 10 // Sample first 10 rows for performance
+		}
+		
+		validValues := 0
+		
+		for row := 0; row < sampleSize; row++ {
+			if col >= len(data[row]) || data[row][col] == "" {
+				continue // Skip empty values
+			}
+			
+			value := strings.TrimSpace(data[row][col])
+			if value == "" {
+				continue
+			}
+			
+			validValues++
+			
+			// Check each pattern and score
+			if emailRegex.MatchString(value) {
+				typeScores[TypeEmail] += 10
+			}
+			if phoneRegex.MatchString(value) {
+				typeScores[TypePhone] += 10
+			}
+			if ssnRegex.MatchString(value) {
+				typeScores[TypeSSN] += 10
+			}
+			if ccRegex.MatchString(value) {
+				typeScores[TypeCreditCard] += 10
+			}
+			if addressRegex.MatchString(value) || addressWordRegex.MatchString(value) {
+				typeScores[TypeAddress] += 10
+			}
+			if nameRegex.MatchString(value) && !addressWordRegex.MatchString(value) {
+				typeScores[TypeName] += 5 // Lower weight since names are harder to detect
+			}
+		}
+		
+		// Find the type with the highest score
+		var bestType DataType = TypeGeneric
+		var maxScore int = 0
+		
+		for dataType, score := range typeScores {
+			if score > maxScore {
+				maxScore = score
+				bestType = dataType
+			}
+		}
+		
+		// Use the best type if we have a reasonable confidence
+		// For name detection, we use a lower threshold since it's harder to detect reliably
+		var threshold int
+		if bestType == TypeName {
+			threshold = validValues * 3 // 30% threshold for names
+		} else {
+			threshold = validValues * 5 // 50% threshold for other types
+		}
+		
+		if validValues > 0 && maxScore >= threshold {
+			columnTypes[col] = bestType
+		} else {
+			columnTypes[col] = TypeGeneric
+		}
+	}
+	
+	return columnTypes, nil
 }
 
 // GenerateSecretKey generates a cryptographically secure random key

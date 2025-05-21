@@ -55,7 +55,7 @@ func main() {
 	// Extract data rows (skip header)
 	dataRows := customerData[1:]
 	
-	// Deidentify the data
+	// Deidentify the data with explicit types and names
 	deidentifiedData, err := d.DeidentifySlices(dataRows, columnTypes, columnNames)
 	if err != nil {
 		log.Fatal("Failed to deidentify data:", err)
@@ -131,6 +131,31 @@ func main() {
 	}
 	
 	fmt.Printf("Total processed: %d rows\n", len(processedBatches))
+	
+	// Demonstrate automatic type inference
+	fmt.Println("\n=== Automatic Type Inference Demo ===")
+	
+	// Data with clear patterns - no need to specify types or names
+	autoData := [][]string{
+		{"john.doe@example.com", "John Doe", "555-123-4567", "123-45-6789"},
+		{"jane.smith@company.org", "Jane Smith", "(555) 987-6543", "987-65-4321"},
+		{"bob@test.co.uk", "Bob Johnson", "555.111.2222", "456-78-9012"},
+	}
+	
+	// Call with nil parameters - types and names will be inferred
+	autoResult, err := d.DeidentifySlices(autoData, nil, nil)
+	if err != nil {
+		log.Printf("Auto inference failed: %v", err)
+		return
+	}
+	
+	fmt.Println("Original data (auto-inference):")
+	printSlices(autoData)
+	
+	fmt.Println("\nDeidentified data (auto-inferred types):")
+	printSlices(autoResult)
+	
+	fmt.Println("✓ Types automatically detected: Email, Name, Phone, SSN")
 }
 
 func printSlices(data [][]string) {

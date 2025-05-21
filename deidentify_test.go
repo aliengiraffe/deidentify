@@ -552,6 +552,102 @@ func TestDeidentifySlices(t *testing.T) {
 	}
 }
 
+func TestDeidentifySlicesInference(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	
+	// Test data with clear patterns
+	data := [][]string{
+		{"john.doe@example.com", "John Doe", "(555) 123-4567", "123-45-6789", "123 Main Street"},
+		{"jane.smith@company.org", "Jane Smith", "555-987-6543", "987-65-4321", "456 Oak Avenue"},
+		{"bob@test.co.uk", "Bob Johnson", "555.111.2222", "456-78-9012", "789 Pine Drive"},
+	}
+	
+	// Test with nil parameters (should infer)
+	result, err := d.DeidentifySlices(data, nil, nil)
+	if err != nil {
+		t.Fatalf("DeidentifySlices with inference failed: %v", err)
+	}
+	
+	if len(result) != len(data) {
+		t.Errorf("Expected %d rows, got %d", len(data), len(result))
+	}
+	
+	// Test that emails are deidentified (column 0)
+	if result[0][0] == data[0][0] {
+		t.Error("Email should be deidentified")
+	}
+	
+	// Test that phone numbers are deidentified (column 2)
+	if result[0][2] == data[0][2] {
+		t.Error("Phone should be deidentified")
+	}
+	
+	// Test with empty slices (should infer)
+	result2, err := d.DeidentifySlices(data, []DataType{}, []string{})
+	if err != nil {
+		t.Fatalf("DeidentifySlices with empty slices failed: %v", err)
+	}
+	
+	if len(result2) != len(data) {
+		t.Errorf("Expected %d rows, got %d", len(data), len(result2))
+	}
+}
+
+func TestInferColumnTypes(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	
+	testCases := []struct {
+		name     string
+		data     [][]string
+		expected []DataType
+	}{
+		{
+			name: "Clear patterns",
+			data: [][]string{
+				{"john@example.com", "John Doe", "(555) 123-4567"},
+				{"jane@company.org", "Jane Smith", "555-987-6543"},
+			},
+			expected: []DataType{TypeEmail, TypeName, TypePhone},
+		},
+		{
+			name: "Mixed with some empty",
+			data: [][]string{
+				{"test@example.com", "", "123-45-6789"},
+				{"", "Bob Smith", "987-65-4321"},
+				{"admin@test.org", "Alice Brown", ""},
+			},
+			expected: []DataType{TypeEmail, TypeName, TypeSSN},
+		},
+		{
+			name: "Generic fallback",
+			data: [][]string{
+				{"random text", "123ABC", "unknown format"},
+				{"more text", "XYZ789", "another format"},
+			},
+			expected: []DataType{TypeGeneric, TypeGeneric, TypeGeneric},
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := d.inferColumnTypes(tc.data)
+			if err != nil {
+				t.Fatalf("inferColumnTypes failed: %v", err)
+			}
+			
+			if len(result) != len(tc.expected) {
+				t.Fatalf("Expected %d types, got %d", len(tc.expected), len(result))
+			}
+			
+			for i, expected := range tc.expected {
+				if result[i] != expected {
+					t.Errorf("Column %d: expected %v, got %v", i, expected, result[i])
+				}
+			}
+		})
+	}
+}
+
 func TestDeidentifySlicesErrorCases(t *testing.T) {
 	d := NewDeidentifier("test-secret-key")
 	
@@ -575,18 +671,6 @@ func TestDeidentifySlicesErrorCases(t *testing.T) {
 	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, []string{"name"})
 	if err == nil {
 		t.Error("Should error when column names don't match data columns")
-	}
-	
-	// Test missing column types
-	_, err = d.DeidentifySlices(data, []DataType{}, []string{"name", "email"})
-	if err == nil {
-		t.Error("Should error when column types are empty")
-	}
-	
-	// Test missing column names
-	_, err = d.DeidentifySlices(data, []DataType{TypeName, TypeEmail}, []string{})
-	if err == nil {
-		t.Error("Should error when column names are empty")
 	}
 }
 
