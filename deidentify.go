@@ -28,8 +28,9 @@ var (
 	// Regular expression patterns for finding PII
 	emailRegexPattern        = `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
 	phoneRegexPattern        = `(\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}`
-	ssnRegexPattern          = `\d{3}[-]?\d{2}[-]?\d{4}`
-	hyphenRegexPattern       = `-`
+	ssnRegexPattern          = `\d{3}[- ]?\d{2}[- ]?\d{4}`
+	ssnSpaceRegexPattern     = `[ ]`
+	ssnHyphenRegexPattern    = `[-]`
 	ssnContextRegexPattern   = `(?i)SSN|social security`
 	creditCardRegexPattern   = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
 	nameRegexPattern         = `\b[A-Z][a-z]+ [A-Z][a-z]+\b`
@@ -95,12 +96,20 @@ func (d *Deidentifier) DeidentifyText(text string) (string, error) {
 	ssnRegex := regexp.MustCompile(ssnRegexPattern)
 	result = ssnRegex.ReplaceAllStringFunc(result, func(ssn string) string {
 		// Verify it's likely an SSN, not just any 9 digits
-		hyphenRegex := regexp.MustCompile(hyphenRegexPattern)
+		ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
+		ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
 		ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
 		
-		if !hyphenRegex.MatchString(ssn) && !ssnContextRegex.MatchString(text) {
-			// If no hyphens and not mentioned as SSN, might be something else - check surrounding text
-			if len(ssn) == 9 {
+		// Get the raw digits without any separators
+		rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
+		
+		// Check if it's formatted like an SSN (with hyphens or spaces) or mentioned with SSN context
+		isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn) 
+		hasSSNContext := ssnContextRegex.MatchString(text)
+		
+		if !isFormatted && !hasSSNContext {
+			// If not formatted like an SSN and no SSN context, only detect if exactly 9 digits
+			if len(rawDigits) == 9 {
 				// Assume it's an SSN if it's exactly 9 digits
 				deidentified, err := d.deidentifyValue(ssn, TypeSSN, "ssn")
 				if err != nil {

@@ -86,6 +86,8 @@ func TestSSNDeidentification(t *testing.T) {
 		"123-45-6789",
 		"987-65-4321",
 		"555-12-3456",
+		"123 45 6789",   // With spaces
+		"123456789",     // Without separators
 	}
 	
 	ssnRegex := regexp.MustCompile(`^\d{3}-\d{2}-\d{4}$`)
@@ -104,6 +106,33 @@ func TestSSNDeidentification(t *testing.T) {
 		
 		if result == original {
 			t.Errorf("SSN should be anonymized, got same value: %s", result)
+		}
+	}
+}
+
+func TestSSNPatternMatching(t *testing.T) {
+	// Test that our SSN regex pattern matches all expected formats
+	pattern := regexp.MustCompile(`^\d{3}[- ]?\d{2}[- ]?\d{4}$`)
+	
+	testCases := []struct {
+		input    string
+		expected bool
+	}{
+		{"123-45-6789", true},   // Hyphenated format
+		{"123 45 6789", true},   // Space-separated format
+		{"123456789", true},     // No separators
+		{"12345678", false},     // Too short
+		{"1234567890", false},   // Too long
+		{"12A-45-6789", false},  // Contains non-digit
+		{"123-456-789", false},  // Wrong grouping with hyphens
+		{"123 456 789", false},  // Wrong grouping with spaces
+	}
+	
+	for _, tc := range testCases {
+		matched := pattern.MatchString(tc.input)
+		if matched != tc.expected {
+			t.Errorf("SSN pattern matching for %s: expected %v, got %v", 
+				tc.input, tc.expected, matched)
 		}
 	}
 }
@@ -280,10 +309,24 @@ func TestDeidentifyText(t *testing.T) {
 			},
 		},
 		{
-			name: "SSN detection",
+			name: "SSN detection with hyphens",
 			input: "My SSN is 123-45-6789 and my friend's is 987654321",
 			patterns: []string{
 				`My SSN is \d{3}-\d{2}-\d{4} and my friend's is \d{3}-\d{2}-\d{4}`,
+			},
+		},
+		{
+			name: "SSN detection with spaces",
+			input: "My social security number is 123 45 6789",
+			patterns: []string{
+				`My social security number is \d{3}-\d{2}-\d{4}`,
+			},
+		},
+		{
+			name: "SSN detection without separators",
+			input: "Customer SSN: 123456789",
+			patterns: []string{
+				`Customer SSN: \d{3}-\d{2}-\d{4}`,
 			},
 		},
 		{
