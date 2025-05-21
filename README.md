@@ -126,14 +126,21 @@ data := [][]string{
     {"Bob Smith", "bob@company.org", "(555) 987-6543"},
 }
 
-// Option 1: Explicit types and names
-columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
-columnNames := []string{"name", "email", "phone"}
-result, err := d.DeidentifySlices(data, columnTypes, columnNames)
-
-// Option 2: Automatic type inference 
+// Option 1: Automatic type inference (recommended)
 result, err := d.DeidentifySlices(data)
-// Types are automatically detected based on data patterns
+if err != nil {
+    log.Fatal("Failed to deidentify:", err)
+}
+// Types are automatically detected: Name, Email, Phone
+// Result: [["Taylor Miller", "user4921@demo.co", "555-642-8317"], ...]
+
+// Option 2: Explicit column types only
+columnTypes := []deidentify.DataType{deidentify.TypeName, deidentify.TypeEmail, deidentify.TypePhone}
+result, err = d.DeidentifySlices(data, columnTypes)
+
+// Option 3: Both explicit types and custom column names
+columnNames := []string{"customer_name", "customer_email", "customer_phone"}
+result, err = d.DeidentifySlices(data, columnTypes, columnNames)
 ```
 
 ## More Examples
