@@ -39,22 +39,19 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # Extract changes from git log since the previous tag or from all history if this is the first tag
           PREV_TAG=$(git describe --tags --abbrev=0 ${{ env.VERSION }}^ 2>/dev/null || echo "")
-          
           if [ -z "$PREV_TAG" ]; then
-            echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-            echo "## First Release: ${{ env.VERSION }}" >> $GITHUB_ENV
-            echo "" >> $GITHUB_ENV
-            git log --pretty=format:"* %s (%h)" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+            echo "## First Release: ${{ env.VERSION }}" > changelog.txt
+            echo "" >> changelog.txt
+            git log --pretty=format:"* %s (%h)" >> changelog.txt
           else
-            echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-            echo "## Changes from $PREV_TAG to ${{ env.VERSION }}" >> $GITHUB_ENV
-            echo "" >> $GITHUB_ENV
-            git log --pretty=format:"* %s (%h)" $PREV_TAG..${{ env.VERSION }} >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+            echo "## Changes from $PREV_TAG to ${{ env.VERSION }}" > changelog.txt
+            echo "" >> changelog.txt
+            git log --pretty=format:"* %s (%h)" $PREV_TAG..${{ env.VERSION }} >> changelog.txt
           fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          cat changelog.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
           
       - name: Generate Module documentation
         run: |
