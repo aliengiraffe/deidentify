@@ -122,7 +122,7 @@ func main() {
 See the [examples](./examples) directory for comprehensive usage patterns:
 
 - [Basic usage](./examples/basic/main.go): Simple text deidentification
-- [Table processing](./examples/table/main.go): Working with structured data
+- [International address handling](./examples/international/main.go): Support for addresses across different regions
 
 ## Configuration
 
@@ -167,6 +167,26 @@ The library includes support for international address formats:
 - Middle Eastern and global formats
 
 The detection patterns have been optimized to recognize common address structures across different languages and regional conventions, while the anonymization preserves format and readability.
+
+## Releases
+
+### Creating a New Release
+
+The library uses GitHub Actions to automate the release process. To create a new release:
+
+1. Update your code and commit all changes
+2. Create and push a new tag with semantic versioning format:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+3. The GitHub Actions workflow will automatically:
+   - Run tests to ensure everything works
+   - Generate a changelog based on commits since the last tag
+   - Create a GitHub release with documentation
+   - Publish the new version to the Go module proxy
+
+This makes the new version immediately available for users to install via `go get github.com/aliengiraffe/deidentify@v1.0.0`.
 
 ## Contributing
 
