@@ -561,6 +561,66 @@ func (d *Deidentifier) ClearMappings() {
 	d.mappingTables = make(map[string]map[string]string)
 }
 
+// DeidentifySlices processes a slice of string slices ([][]string)
+// Each inner slice represents a row of data
+// The columnTypes parameter specifies the DataType for each column
+// The columnNames parameter provides names for each column (used for consistent mapping)
+func (d *Deidentifier) DeidentifySlices(data [][]string, columnTypes []DataType, columnNames []string) ([][]string, error) {
+	if len(data) == 0 {
+		return [][]string{}, nil
+	}
+
+	// Validate input parameters
+	if len(columnTypes) == 0 || len(columnNames) == 0 {
+		return nil, fmt.Errorf("column types and names must be provided")
+	}
+
+	// Determine the number of columns from the first row
+	var numCols int
+	if len(data) > 0 {
+		numCols = len(data[0])
+	}
+
+	// Validate that column types and names match the data structure
+	if len(columnTypes) != numCols || len(columnNames) != numCols {
+		return nil, fmt.Errorf("mismatch between data columns (%d) and provided column types (%d) or names (%d)",
+			numCols, len(columnTypes), len(columnNames))
+	}
+
+	// Create result matrix with same dimensions
+	result := make([][]string, len(data))
+	
+	// Process each row
+	for i, row := range data {
+		// Create a new row with same length
+		resultRow := make([]string, len(row))
+		
+		// Process each cell in the row
+		for j, value := range row {
+			if value == "" {
+				resultRow[j] = ""
+				continue
+			}
+			
+			// Get the column type and name for this cell
+			colType := columnTypes[j]
+			colName := columnNames[j]
+			
+			// Deidentify the value
+			deidentifiedValue, err := d.deidentifyValue(value, colType, colName)
+			if err != nil {
+				return nil, fmt.Errorf("error deidentifying row %d, column %d (%s): %w", i, j, colName, err)
+			}
+			
+			resultRow[j] = deidentifiedValue
+		}
+		
+		result[i] = resultRow
+	}
+
+	return result, nil
+}
+
 // GenerateSecretKey generates a cryptographically secure random key
 func GenerateSecretKey() (string, error) {
 	key := make([]byte, 32)
