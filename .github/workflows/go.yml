@@ -1,4 +1,4 @@
-name: Go
+name: Build & Test
 
 on:
   push:
@@ -54,7 +54,6 @@ jobs:
       uses: golangci/golangci-lint-action@v8
       with:
         version: latest
-        args: --out-format=colored-line-number
 
   benchmark:
     name: Performance Benchmarks
