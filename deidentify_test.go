@@ -505,6 +505,22 @@ func TestSlices(t *testing.T) {
 	}
 
 	// Check result dimensions
+	checkSlicesDimensions(t, result, data)
+
+	// Test that non-empty values are deidentified
+	checkNonEmptyValuesDeidentified(t, result, data)
+
+	// Test that empty values remain empty
+	checkEmptyValuesRemainEmpty(t, result)
+
+	// Test deterministic behavior
+	checkDeterministicBehavior(t, d, data, columnTypes, columnNames, result)
+
+	// Test with different column names (should produce different results)
+	checkDifferentColumnNames(t, data, columnTypes, result)
+}
+
+func checkSlicesDimensions(t *testing.T, result, data [][]string) {
 	if len(result) != len(data) {
 		t.Errorf("Expected %d rows, got %d", len(data), len(result))
 	}
@@ -514,21 +530,24 @@ func TestSlices(t *testing.T) {
 			t.Errorf("Row %d: expected %d columns, got %d", i, len(data[i]), len(row))
 		}
 	}
+}
 
-	// Test that non-empty values are deidentified
+func checkNonEmptyValuesDeidentified(t *testing.T, result, data [][]string) {
 	if result[0][0] == data[0][0] && data[0][0] != "" {
 		t.Error("Name should be deidentified")
 	}
 	if result[0][1] == data[0][1] && data[0][1] != "" {
 		t.Error("Email should be deidentified")
 	}
+}
 
-	// Test that empty values remain empty
+func checkEmptyValuesRemainEmpty(t *testing.T, result [][]string) {
 	if result[3][0] != "" || result[3][1] != "" {
 		t.Error("Empty values should remain empty")
 	}
+}
 
-	// Test deterministic behavior
+func checkDeterministicBehavior(t *testing.T, d *Deidentifier, data [][]string, columnTypes []DataType, columnNames []string, result [][]string) {
 	result2, err := d.Slices(data, columnTypes, columnNames)
 	if err != nil {
 		t.Fatalf("Second Slices failed: %v", err)
@@ -537,8 +556,9 @@ func TestSlices(t *testing.T) {
 	if result[0][0] != result2[0][0] {
 		t.Error("Deidentification should be deterministic")
 	}
+}
 
-	// Test with different column names (should produce different results)
+func checkDifferentColumnNames(t *testing.T, data [][]string, columnTypes []DataType, result [][]string) {
 	// Create a fresh deidentifier to ensure clean mapping table
 	d2 := NewDeidentifier("test-secret-key-3")
 	differentColumnNames := []string{"customer_name", "customer_email", "customer_phone", "customer_ssn"}
