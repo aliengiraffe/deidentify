@@ -299,7 +299,6 @@ func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnNa
 	}
 
 	var result string
-	var err error
 
 	switch dataType {
 	case TypeName:
@@ -316,10 +315,6 @@ func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnNa
 		result = d.generateAddress(value)
 	default:
 		result = d.generateGeneric(value)
-	}
-
-	if err != nil {
-		return "", err
 	}
 
 	// Store mapping for consistency
@@ -364,7 +359,7 @@ func (d *Deidentifier) generateCreditCard(original string) string {
 
 	// Generate 15 digits (4000 + 11 more digits)
 	cardNumber := "4000"
-	for i := 0; i < 11; i++ {
+	for i := range 11 {
 		digit := d.hashToIndex(hash[i*2:i*2+2], 10)
 		cardNumber += strconv.Itoa(digit)
 	}
