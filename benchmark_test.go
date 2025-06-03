@@ -48,58 +48,21 @@ func BenchmarkParagraphDeidentification(b *testing.B) {
 	// Create a random generator with a fixed seed for reproducibility
 	rng := rand.New(rand.NewSource(42))
 
-	// Variables to track timing
-	var totalTime time.Duration
-	var timings []time.Duration
-
-	// Run the benchmark
+	// Reset timer to exclude setup time
 	b.ResetTimer()
 
-	// Process exactly 1000 paragraphs
-	iterations := 1000
-
-	for i := 0; i < iterations; i++ {
+	// Run the benchmark b.N times
+	for i := 0; i < b.N; i++ {
 		// Select a random paragraph
 		paragraphIndex := rng.Intn(len(sampleParagraphs))
 		paragraph := sampleParagraphs[paragraphIndex]
 
-		// Time only the deidentification process
-		start := time.Now()
+		// Deidentify the paragraph
 		_, err := d.Text(paragraph)
-		elapsed := time.Since(start)
-
 		if err != nil {
 			b.Fatalf("Deidentification failed: %v", err)
 		}
-
-		totalTime += elapsed
-		timings = append(timings, elapsed)
 	}
-
-	// Calculate statistics
-	meanTime := totalTime / time.Duration(iterations)
-
-	// Find min and max times
-	minTime := timings[0]
-	maxTime := timings[0]
-	for _, t := range timings[1:] {
-		if t < minTime {
-			minTime = t
-		}
-		if t > maxTime {
-			maxTime = t
-		}
-	}
-
-	// Report results
-	b.StopTimer()
-	b.Logf("\n=== Deidentification Performance Results ===")
-	b.Logf("Processed %d paragraphs", iterations)
-	b.Logf("Total time for deidentification: %v", totalTime)
-	b.Logf("Mean time per paragraph: %v", meanTime)
-	b.Logf("Min time: %v", minTime)
-	b.Logf("Max time: %v", maxTime)
-	b.Logf("Throughput: %.2f paragraphs/second", float64(iterations)/totalTime.Seconds())
 }
 
 // BenchmarkParagraphDeidentificationParallel benchmarks parallel deidentification
