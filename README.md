@@ -219,6 +219,26 @@ The library uses GitHub Actions to automate the release process. To create a new
 
 This makes the new version immediately available for users to install via `go get github.com/aliengiraffe/deidentify@v1.0.0`.
 
+## Performance
+
+To run performance benchmarks:
+
+```bash
+# Run all benchmarks
+go test -bench=. -benchtime=10s
+
+# Run only the paragraph deidentification benchmark
+go test -bench=BenchmarkParagraphDeidentification -benchtime=1x
+
+# Run benchmarks with memory allocation stats
+go test -bench=. -benchmem
+
+# Run parallel benchmarks to test concurrent performance
+go test -bench=BenchmarkParagraphDeidentificationParallel
+```
+
+The benchmarks measure the time to deidentify paragraphs containing various types of PII. On modern hardware, the library can process over 600 paragraphs per second with an average processing time of ~1.5ms per paragraph.
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to contribute to this project.
