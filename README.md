@@ -263,6 +263,28 @@ go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtim
 go tool pprof -focus=deidentify cpu.prof
 ```
 
+#### Automated Profiling
+
+For convenience, use the included profiling script:
+
+```bash
+./scripts/profile-benchmarks.sh
+```
+
+This script will:
+- Run benchmarks with CPU and memory profiling
+- Generate text reports (top consumers, full profiles)
+- Create visual graphs (SVG/PNG) if graphviz is installed
+- Save all artifacts in the `profiles/` directory
+
+#### CI/CD Integration
+
+Pull requests automatically generate profiling reports through GitHub Actions. The workflow:
+- Runs benchmarks with CPU and memory profiling
+- Generates pprof reports and visualizations
+- Posts a summary comment on the PR with key metrics
+- Uploads full profiling artifacts for download
+
 The benchmarks measure the time to deidentify paragraphs containing various types of PII. On modern hardware, the library can process over 600 paragraphs per second with an average processing time of ~1.5ms per paragraph.
 
 ## Contributing
