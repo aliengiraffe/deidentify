@@ -74,11 +74,12 @@ else
 fi
 
 echo -e "\n${GREEN}=== Profile Analysis Commands ===${NC}"
-echo "To analyze profiles interactively:"
+echo "To view profiles in interactive web UI:"
+echo "  go tool pprof -http=:8080 profiles/cpu.prof"
+echo "  go tool pprof -http=:8081 profiles/mem.prof"
+echo ""
+echo "To analyze profiles in terminal:"
 echo "  go tool pprof profiles/cpu.prof"
 echo "  go tool pprof profiles/mem.prof"
-echo ""
-echo "To start web UI (requires graphviz):"
-echo "  go tool pprof -http=:8080 profiles/cpu.prof"
 echo ""
 echo "All reports saved in: ${PROJECT_ROOT}/profiles/"

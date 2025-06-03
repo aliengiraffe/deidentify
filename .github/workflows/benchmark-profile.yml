@@ -73,6 +73,75 @@ jobs:
         go tool pprof -focus=deidentify -text cpu.prof > cpu_deidentify_focused.txt
         go tool pprof -focus=deidentify -svg cpu.prof > cpu_deidentify_focused.svg
 
+    - name: Generate interactive HTML reports
+      run: |
+        cd profiles
+        
+        # Generate interactive HTML visualizations
+        echo "Generating interactive HTML reports..."
+        
+        # Create HTML wrapper for CPU SVG
+        cat > cpu_profile.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>CPU Profile - Deidentify Benchmark</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+                .graph { margin: 20px 0; }
+                svg { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <h1>CPU Profile Analysis</h1>
+            <div class="info">
+                <p>Interactive CPU profile visualization for deidentify benchmarks</p>
+                <p>Click on nodes to zoom in/out. Wider edges = more CPU time.</p>
+            </div>
+            <div class="graph">
+        EOF
+        
+        cat cpu_graph.svg >> cpu_profile.html
+        
+        cat >> cpu_profile.html << 'EOF'
+            </div>
+        </body>
+        </html>
+        EOF
+        
+        # Create HTML wrapper for Memory SVG
+        cat > memory_profile.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Memory Profile - Deidentify Benchmark</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+                .graph { margin: 20px 0; }
+                svg { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <h1>Memory Profile Analysis</h1>
+            <div class="info">
+                <p>Interactive memory allocation profile for deidentify benchmarks</p>
+                <p>Shows memory allocations by function. Click nodes to explore.</p>
+            </div>
+            <div class="graph">
+        EOF
+        
+        cat mem_graph.svg >> memory_profile.html
+        
+        cat >> memory_profile.html << 'EOF'
+            </div>
+        </body>
+        </html>
+        EOF
+
     - name: Upload profile artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -96,9 +165,16 @@ jobs:
           // Extract key metrics from benchmark output
           const throughputMatch = benchmarkResults.match(/Throughput: ([\d.]+) paragraphs\/second/);
           const meanTimeMatch = benchmarkResults.match(/Mean time per paragraph: ([\d.]+\w+)/);
+          const nsOpMatch = benchmarkResults.match(/BenchmarkParagraphDeidentification.*?\s+([\d.]+) ns\/op/);
           
           const throughput = throughputMatch ? throughputMatch[1] : 'N/A';
           const meanTime = meanTimeMatch ? meanTimeMatch[1] : 'N/A';
+          const nsOp = nsOpMatch ? nsOpMatch[1] : 'N/A';
+          
+          // Get artifact URLs
+          const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+          const cpuHtmlUrl = `${artifactUrl}#artifact-cpu-profile`;
+          const memHtmlUrl = `${artifactUrl}#artifact-memory-profile`;
           
           // Create comment body
           const comment = `## 📊 Benchmark & Profile Results
@@ -106,25 +182,39 @@ jobs:
           ### Performance Summary
           - **Throughput**: ${throughput} paragraphs/second
           - **Mean time per paragraph**: ${meanTime}
+          - **Nanoseconds per operation**: ${nsOp} ns/op
+          
+          ### 🔍 Interactive Profile Visualizations
+          
+          View the interactive profile graphs directly in your browser:
+          
+          📈 **[View CPU Profile →](${artifactUrl})**
+          - Download the artifact `benchmark-profiles-${{ github.sha }}`
+          - Open `cpu_profile.html` in your browser
+          
+          💾 **[View Memory Profile →](${artifactUrl})**  
+          - Download the artifact `benchmark-profiles-${{ github.sha }}`
+          - Open `memory_profile.html` in your browser
           
           ### CPU Profile (Top 20)
           \`\`\`
-          ${cpuTop20.substring(0, 1000)}...
+          ${cpuTop20.substring(0, 800)}...
           \`\`\`
           
           ### Memory Profile (Top 20)
           \`\`\`
-          ${memTop20.substring(0, 1000)}...
+          ${memTop20.substring(0, 800)}...
           \`\`\`
           
-          ### 📥 Download Full Reports
-          The complete profiling artifacts are available as workflow artifacts:
-          - CPU profiles (text, SVG, PNG)
-          - Memory profiles (text, SVG, PNG)
-          - Focused deidentify function analysis
-          - Full benchmark results
+          ### 📥 All Artifacts Available
           
-          [Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          Download the complete profiling package from the [workflow artifacts](${artifactUrl}):
+          
+          - 🌐 **HTML Reports**: `cpu_profile.html`, `memory_profile.html` (interactive visualizations)
+          - 📊 **Graphs**: CPU & Memory SVG/PNG files
+          - 📝 **Text Reports**: Full profiling data in text format
+          - 🎯 **Focused Analysis**: Deidentify-specific function profiling
+          - 📋 **Raw Profiles**: `.prof` files for custom analysis
           
           <details>
           <summary>Full Benchmark Output</summary>
@@ -135,7 +225,7 @@ jobs:
           </details>
           
           ---
-          *Generated by Benchmark & Profile workflow*`;
+          *Generated by Benchmark & Profile workflow run [#${{ github.run_id }}](${artifactUrl})*`;
           
           // Post comment
           github.rest.issues.createComment({

@@ -248,19 +248,52 @@ go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtim
 # Generate memory profile
 go test -bench=BenchmarkParagraphDeidentification -memprofile=mem.prof -benchtime=10s
 
-# Analyze CPU profile
+# Analyze CPU profile in terminal
 go tool pprof cpu.prof
 # Then use interactive commands like 'top', 'list', 'web'
 
-# Analyze memory profile
+# Analyze memory profile in terminal
 go tool pprof mem.prof
+```
 
-# Generate a flame graph (requires graphviz)
+#### Interactive Web UI
+
+The most powerful way to analyze profiles is using pprof's built-in web server, which provides an interactive visualization:
+
+```bash
+# Start interactive web UI for CPU profile (opens browser automatically)
 go tool pprof -http=:8080 cpu.prof
 
-# Profile specific functions
-go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtime=30s
+# Start interactive web UI for memory profile on different port
+go tool pprof -http=:8081 mem.prof
+
+# If browser doesn't open automatically, navigate to:
+# http://localhost:8080 (for CPU)
+# http://localhost:8081 (for memory)
+```
+
+The web UI provides:
+- **Flame Graph**: Interactive flame graph showing call stack and CPU/memory usage
+- **Graph View**: Call graph with edges showing relationships and costs
+- **Top View**: Sorted list of functions by resource consumption
+- **Source View**: Line-by-line annotation of source code with costs
+- **Peek View**: Shows callers and callees of selected functions
+- **Disassembly View**: Assembly-level analysis
+
+#### Advanced Analysis
+
+```bash
+# Focus on specific functions (e.g., deidentify package)
 go tool pprof -focus=deidentify cpu.prof
+
+# Compare two profiles (e.g., before and after optimization)
+go tool pprof -base=cpu_before.prof cpu_after.prof
+
+# Generate a PDF report (requires graphviz)
+go tool pprof -pdf cpu.prof > cpu_profile.pdf
+
+# Filter by specific time range or samples
+go tool pprof -show_from=Text -show=deidentify cpu.prof
 ```
 
 #### Automated Profiling
