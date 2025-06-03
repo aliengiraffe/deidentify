@@ -237,6 +237,32 @@ go test -bench=. -benchmem
 go test -bench=BenchmarkParagraphDeidentificationParallel
 ```
 
+### CPU and Memory Profiling with pprof
+
+For detailed performance analysis, you can use [pprof](https://github.com/google/pprof) to profile CPU usage and memory allocations:
+
+```bash
+# Generate CPU profile
+go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtime=10s
+
+# Generate memory profile
+go test -bench=BenchmarkParagraphDeidentification -memprofile=mem.prof -benchtime=10s
+
+# Analyze CPU profile
+go tool pprof cpu.prof
+# Then use interactive commands like 'top', 'list', 'web'
+
+# Analyze memory profile
+go tool pprof mem.prof
+
+# Generate a flame graph (requires graphviz)
+go tool pprof -http=:8080 cpu.prof
+
+# Profile specific functions
+go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtime=30s
+go tool pprof -focus=deidentify cpu.prof
+```
+
 The benchmarks measure the time to deidentify paragraphs containing various types of PII. On modern hardware, the library can process over 600 paragraphs per second with an average processing time of ~1.5ms per paragraph.
 
 ## Contributing
