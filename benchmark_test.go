@@ -1,7 +1,6 @@
 package deidentify
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
