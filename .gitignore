@@ -44,3 +44,11 @@ Thumbs.db
 # Build output
 /bin/
 /dist/
+
+# Profiling artifacts
+/profiles/
+*.prof
+cpu_*.txt
+mem_*.txt
+*.svg
+*.png

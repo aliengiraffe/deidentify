@@ -1,0 +1,287 @@
+name: Benchmark & Profile
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  benchmark-profile:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Install dependencies
+      run: |
+        go mod download
+        # Install graphviz for pprof graph generation
+        sudo apt-get update
+        sudo apt-get install -y graphviz
+
+    - name: Run benchmarks with profiling
+      run: |
+        mkdir -p profiles
+        
+        # Run benchmarks with CPU profiling
+        echo "Running benchmarks with CPU profiling..."
+        go test -bench=BenchmarkParagraphDeidentification -benchtime=30s -cpuprofile=profiles/cpu.prof -benchmem > profiles/benchmark.txt 2>&1
+        
+        # Run benchmarks with memory profiling
+        echo "Running benchmarks with memory profiling..."
+        go test -bench=BenchmarkParagraphDeidentification -benchtime=10s -memprofile=profiles/mem.prof >> profiles/benchmark.txt 2>&1
+        
+        # Run parallel benchmarks
+        echo "Running parallel benchmarks..."
+        go test -bench=BenchmarkParagraphDeidentificationParallel -benchtime=10s >> profiles/benchmark.txt 2>&1
+        
+        # Display benchmark results
+        echo "=== Benchmark Results ===" 
+        cat profiles/benchmark.txt
+
+    - name: Generate pprof reports
+      run: |
+        cd profiles
+        
+        # Generate CPU profile reports
+        echo "Generating CPU profile reports..."
+        go tool pprof -top -nodecount=20 cpu.prof > cpu_top20.txt
+        go tool pprof -text cpu.prof > cpu_text.txt
+        go tool pprof -svg cpu.prof > cpu_graph.svg
+        go tool pprof -png cpu.prof > cpu_graph.png
+        
+        # Generate memory profile reports
+        echo "Generating memory profile reports..."
+        go tool pprof -top -nodecount=20 mem.prof > mem_top20.txt
+        go tool pprof -text mem.prof > mem_text.txt
+        go tool pprof -svg mem.prof > mem_graph.svg
+        go tool pprof -png mem.prof > mem_graph.png
+        
+        # Generate focused reports on deidentify functions
+        echo "Generating focused deidentify reports..."
+        go tool pprof -focus=deidentify -text cpu.prof > cpu_deidentify_focused.txt
+        go tool pprof -focus=deidentify -svg cpu.prof > cpu_deidentify_focused.svg
+
+    - name: Generate interactive HTML reports
+      run: |
+        cd profiles
+        
+        # Generate interactive HTML visualizations
+        echo "Generating interactive HTML reports..."
+        
+        # Create HTML wrapper for CPU SVG
+        cat > cpu_profile.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>CPU Profile - Deidentify Benchmark</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+                .graph { margin: 20px 0; }
+                svg { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <h1>CPU Profile Analysis</h1>
+            <div class="info">
+                <p>Interactive CPU profile visualization for deidentify benchmarks</p>
+                <p>Click on nodes to zoom in/out. Wider edges = more CPU time.</p>
+            </div>
+            <div class="graph">
+        EOF
+        
+        cat cpu_graph.svg >> cpu_profile.html
+        
+        cat >> cpu_profile.html << 'EOF'
+            </div>
+        </body>
+        </html>
+        EOF
+        
+        # Create HTML wrapper for Memory SVG
+        cat > memory_profile.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Memory Profile - Deidentify Benchmark</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+                .graph { margin: 20px 0; }
+                svg { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <h1>Memory Profile Analysis</h1>
+            <div class="info">
+                <p>Interactive memory allocation profile for deidentify benchmarks</p>
+                <p>Shows memory allocations by function. Click nodes to explore.</p>
+            </div>
+            <div class="graph">
+        EOF
+        
+        cat mem_graph.svg >> memory_profile.html
+        
+        cat >> memory_profile.html << 'EOF'
+            </div>
+        </body>
+        </html>
+        EOF
+
+    - name: Upload profile artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-profiles-${{ github.sha }}
+        path: profiles/
+        retention-days: 30
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read benchmark results
+          const benchmarkResults = fs.readFileSync('profiles/benchmark.txt', 'utf8');
+          const cpuTop20 = fs.readFileSync('profiles/cpu_top20.txt', 'utf8');
+          const memTop20 = fs.readFileSync('profiles/mem_top20.txt', 'utf8');
+          
+          // Extract key metrics from benchmark output
+          const throughputMatch = benchmarkResults.match(/Throughput: ([\d.]+) paragraphs\/second/);
+          const meanTimeMatch = benchmarkResults.match(/Mean time per paragraph: ([\d.]+\w+)/);
+          const nsOpMatch = benchmarkResults.match(/BenchmarkParagraphDeidentification.*?\s+([\d.]+) ns\/op/);
+          
+          const throughput = throughputMatch ? throughputMatch[1] : 'N/A';
+          const meanTime = meanTimeMatch ? meanTimeMatch[1] : 'N/A';
+          const nsOp = nsOpMatch ? nsOpMatch[1] : 'N/A';
+          
+          // Get artifact URLs
+          const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+          const cpuHtmlUrl = `${artifactUrl}#artifact-cpu-profile`;
+          const memHtmlUrl = `${artifactUrl}#artifact-memory-profile`;
+          
+          // Create comment identifier
+          const commentIdentifier = '<!-- benchmark-profile-results -->';
+          
+          // Create comment body
+          const commentBody = [
+            commentIdentifier,
+            '## 📊 Benchmark & Profile Results',
+            '',
+            '### Performance Summary',
+            `- **Throughput**: ${throughput} paragraphs/second`,
+            `- **Mean time per paragraph**: ${meanTime}`,
+            `- **Nanoseconds per operation**: ${nsOp} ns/op`,
+            '',
+            '### 🔍 Interactive Profile Visualizations',
+            '',
+            'View the interactive profile graphs directly in your browser:',
+            '',
+            `📈 **[View CPU Profile →](${artifactUrl})**`,
+            `- Download the artifact \`benchmark-profiles-${{ github.sha }}\``,
+            '- Open `cpu_profile.html` in your browser',
+            '',
+            `💾 **[View Memory Profile →](${artifactUrl})**`,
+            `- Download the artifact \`benchmark-profiles-${{ github.sha }}\``,
+            '- Open `memory_profile.html` in your browser',
+            '',
+            '### CPU Profile (Top 20)',
+            '```',
+            `${cpuTop20.substring(0, 800)}...`,
+            '```',
+            '',
+            '### Memory Profile (Top 20)',
+            '```',
+            `${memTop20.substring(0, 800)}...`,
+            '```',
+            '',
+            '### 📥 All Artifacts Available',
+            '',
+            `Download the complete profiling package from the [workflow artifacts](${artifactUrl}):`,
+            '',
+            '- 🌐 **HTML Reports**: `cpu_profile.html`, `memory_profile.html` (interactive visualizations)',
+            '- 📊 **Graphs**: CPU & Memory SVG/PNG files',
+            '- 📝 **Text Reports**: Full profiling data in text format',
+            '- 🎯 **Focused Analysis**: Deidentify-specific function profiling',
+            '- 📋 **Raw Profiles**: `.prof` files for custom analysis',
+            '',
+            '<details>',
+            '<summary>Full Benchmark Output</summary>',
+            '',
+            '```',
+            benchmarkResults,
+            '```',
+            '</details>',
+            '',
+            '---',
+            `*Generated by Benchmark & Profile workflow run [#${{ github.run_id }}](${artifactUrl}) • Updated: ${new Date().toUTCString()}*`
+          ].join('\n');
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.body.includes(commentIdentifier)
+          );
+          
+          if (botComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: commentBody,
+            });
+            console.log(`Updated existing comment: ${botComment.html_url}`);
+          } else {
+            // Create new comment
+            const { data: newComment } = await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody,
+            });
+            console.log(`Created new comment: ${newComment.html_url}`);
+          }
+
+    - name: Generate summary
+      run: |
+        echo "## Benchmark & Profile Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract and display key metrics
+        if grep -q "Throughput:" profiles/benchmark.txt; then
+          echo "### Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          grep "Throughput:" profiles/benchmark.txt >> $GITHUB_STEP_SUMMARY
+          grep "Mean time per paragraph:" profiles/benchmark.txt >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "### Top CPU Consumers" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        head -n 10 profiles/cpu_top20.txt >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "Profile artifacts have been uploaded and are available in the workflow run." >> $GITHUB_STEP_SUMMARY

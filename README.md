@@ -219,6 +219,107 @@ The library uses GitHub Actions to automate the release process. To create a new
 
 This makes the new version immediately available for users to install via `go get github.com/aliengiraffe/deidentify@v1.0.0`.
 
+## Performance
+
+To run performance benchmarks:
+
+```bash
+# Run all benchmarks
+go test -bench=. -benchtime=10s
+
+# Run only the paragraph deidentification benchmark
+go test -bench=BenchmarkParagraphDeidentification -benchtime=1x
+
+# Run benchmarks with memory allocation stats
+go test -bench=. -benchmem
+
+# Run parallel benchmarks to test concurrent performance
+go test -bench=BenchmarkParagraphDeidentificationParallel
+```
+
+### CPU and Memory Profiling with pprof
+
+For detailed performance analysis, you can use [pprof](https://github.com/google/pprof) to profile CPU usage and memory allocations:
+
+```bash
+# Generate CPU profile
+go test -bench=BenchmarkParagraphDeidentification -cpuprofile=cpu.prof -benchtime=10s
+
+# Generate memory profile
+go test -bench=BenchmarkParagraphDeidentification -memprofile=mem.prof -benchtime=10s
+
+# Analyze CPU profile in terminal
+go tool pprof cpu.prof
+# Then use interactive commands like 'top', 'list', 'web'
+
+# Analyze memory profile in terminal
+go tool pprof mem.prof
+```
+
+#### Interactive Web UI
+
+The most powerful way to analyze profiles is using pprof's built-in web server, which provides an interactive visualization:
+
+```bash
+# Start interactive web UI for CPU profile (opens browser automatically)
+go tool pprof -http=:8080 cpu.prof
+
+# Start interactive web UI for memory profile on different port
+go tool pprof -http=:8081 mem.prof
+
+# If browser doesn't open automatically, navigate to:
+# http://localhost:8080 (for CPU)
+# http://localhost:8081 (for memory)
+```
+
+The web UI provides:
+- **Flame Graph**: Interactive flame graph showing call stack and CPU/memory usage
+- **Graph View**: Call graph with edges showing relationships and costs
+- **Top View**: Sorted list of functions by resource consumption
+- **Source View**: Line-by-line annotation of source code with costs
+- **Peek View**: Shows callers and callees of selected functions
+- **Disassembly View**: Assembly-level analysis
+
+#### Advanced Analysis
+
+```bash
+# Focus on specific functions (e.g., deidentify package)
+go tool pprof -focus=deidentify cpu.prof
+
+# Compare two profiles (e.g., before and after optimization)
+go tool pprof -base=cpu_before.prof cpu_after.prof
+
+# Generate a PDF report (requires graphviz)
+go tool pprof -pdf cpu.prof > cpu_profile.pdf
+
+# Filter by specific time range or samples
+go tool pprof -show_from=Text -show=deidentify cpu.prof
+```
+
+#### Automated Profiling
+
+For convenience, use the included profiling script:
+
+```bash
+./scripts/profile-benchmarks.sh
+```
+
+This script will:
+- Run benchmarks with CPU and memory profiling
+- Generate text reports (top consumers, full profiles)
+- Create visual graphs (SVG/PNG) if graphviz is installed
+- Save all artifacts in the `profiles/` directory
+
+#### CI/CD Integration
+
+Pull requests automatically generate profiling reports through GitHub Actions. The workflow:
+- Runs benchmarks with CPU and memory profiling
+- Generates pprof reports and visualizations
+- Posts a summary comment on the PR with key metrics
+- Uploads full profiling artifacts for download
+
+The benchmarks measure the time to deidentify paragraphs containing various types of PII. On modern hardware, the library can process over 600 paragraphs per second with an average processing time of ~1.5ms per paragraph.
+
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for detailed information on how to contribute to this project.
