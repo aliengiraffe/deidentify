@@ -164,16 +164,3 @@ func TestBenchmarkCorrectness(t *testing.T) {
 		}
 	}
 }
-
-// Example of running the benchmark programmatically
-func Example_benchmarkUsage() {
-	d := NewDeidentifier("example-key")
-
-	// Process a single paragraph and measure time
-	start := time.Now()
-	result, _ := d.Text(sampleParagraphs[0])
-	elapsed := time.Since(start)
-
-	fmt.Printf("Deidentification took: %v\n", elapsed)
-	fmt.Printf("Result length: %d characters\n", len(result))
-}
