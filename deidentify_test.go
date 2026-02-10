@@ -705,6 +705,107 @@ func TestSlicesErrorCases(t *testing.T) {
 	}
 }
 
+func TestGenericTypePreservesValues(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	data := [][]string{
+		{"1", "active", "2024-01-15", "42.50"},
+		{"2", "inactive", "2024-02-20", "100.00"},
+	}
+
+	columnTypes := []DataType{TypeGeneric, TypeGeneric, TypeGeneric, TypeGeneric}
+	result, err := d.Slices(data, columnTypes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for i, row := range data {
+		for j, val := range row {
+			if result[i][j] != val {
+				t.Errorf("row %d col %d: expected %q, got %q", i, j, val, result[i][j])
+			}
+		}
+	}
+}
+
+func TestMixedPIIAndGenericColumns(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	data := [][]string{
+		{"1", "John Doe", "john@example.com", "active"},
+		{"2", "Jane Smith", "jane@example.com", "inactive"},
+	}
+
+	columnTypes := []DataType{TypeGeneric, TypeName, TypeEmail, TypeGeneric}
+	columnNames := []string{"id", "name", "email", "status"}
+	result, err := d.Slices(data, columnTypes, columnNames)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Generic columns unchanged
+	if result[0][0] != "1" {
+		t.Errorf("ID should be preserved, got %q", result[0][0])
+	}
+	if result[0][3] != "active" {
+		t.Errorf("status should be preserved, got %q", result[0][3])
+	}
+
+	// PII columns changed
+	if result[0][1] == "John Doe" {
+		t.Error("name should be deidentified")
+	}
+	if result[0][2] == "john@example.com" {
+		t.Error("email should be deidentified")
+	}
+}
+
+func TestAutoInferredGenericPreservesValues(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	data := [][]string{
+		{"1", "debit", "visa", "active", "2027-03-15"},
+		{"2", "credit", "mastercard", "active", "2028-01-10"},
+		{"3", "debit", "visa", "inactive", "2027-06-20"},
+		{"4", "credit", "amex", "active", "2028-04-05"},
+		{"5", "debit", "visa", "active", "2027-09-25"},
+	}
+
+	result, err := d.Slices(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for i, row := range data {
+		for j, val := range row {
+			if result[i][j] != val {
+				t.Errorf("row %d col %d: expected %q (unchanged), got %q", i, j, val, result[i][j])
+			}
+		}
+	}
+}
+
+func TestTableGenericTypePreservesValues(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	table := &Table{
+		Columns: []Column{
+			{Name: "id", DataType: TypeGeneric, Values: []interface{}{"1", "2", "3"}},
+			{Name: "status", DataType: TypeGeneric, Values: []interface{}{"active", "inactive", "active"}},
+		},
+	}
+
+	result, err := d.Table(table)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for i, col := range result.Columns {
+		for j, val := range col.Values {
+			expected := table.Columns[i].Values[j]
+			if val != expected {
+				t.Errorf("column %s row %d: expected %v, got %v", col.Name, j, expected, val)
+			}
+		}
+	}
+}
+
 func BenchmarkSlicesDeidentification(b *testing.B) {
 	d := NewDeidentifier("benchmark-key")
 

@@ -293,6 +293,11 @@ func (d *Deidentifier) deidentifyValue(value string, dataType DataType, columnNa
 		return "", nil
 	}
 
+	// Generic type means no PII detected — return value unchanged
+	if dataType == TypeGeneric {
+		return value, nil
+	}
+
 	// Check for existing mapping first for deterministic results
 	if mapped := d.getMapping(columnName, value); mapped != "" {
 		return mapped, nil
