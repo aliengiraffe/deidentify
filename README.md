@@ -1,7 +1,6 @@
 # Deidentify
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/aliengiraffe/deidentify.svg)](https://pkg.go.dev/github.com/aliengiraffe/deidentify)
-[![Go Report Card](https://goreportcard.com/badge/github.com/aliengiraffe/deidentify)](https://goreportcard.com/report/github.com/aliengiraffe/deidentify)
 [![codecov](https://codecov.io/gh/aliengiraffe/deidentify/branch/main/graph/badge.svg)](https://codecov.io/gh/aliengiraffe/deidentify)
 [![Build & Test](https://github.com/aliengiraffe/deidentify/actions/workflows/go.yml/badge.svg)](https://github.com/aliengiraffe/deidentify/actions/workflows/go.yml)
 [![Version](https://img.shields.io/github/v/release/aliengiraffe/deidentify.svg)](https://github.com/aliengiraffe/deidentify/releases)
@@ -11,7 +10,7 @@ A Go library for detecting and removing personally identifiable information (PII
 
 ## Overview
 
-`deidentify` is an open source Go package created by AlienGiraffe, Inc. that provides simple yet powerful tools for identifying and anonymizing personal information in various formats. It preserves data utility while protecting privacy through consistent, deterministic replacements.
+`deidentify` is an open source Go package, created by AlienGiraffe, Inc., that detects personally identifiable information in text and structured data and replaces it with format-preserving substitutes. Replacements are deterministic: the same input and secret key always produce the same output, so referential integrity is preserved across records and runs.
 
 ## Features
 
@@ -148,7 +147,7 @@ result, err = d.Slices(data, columnTypes, columnNames)
 
 ## More Examples
 
-See the [examples](./examples) directory for comprehensive usage patterns:
+See the [examples](./examples) directory for additional usage patterns:
 
 - [Basic usage](./examples/basic/main.go): Simple text deidentification
 - [Table processing](./examples/table/main.go): Structured data with multiple columns and types  
@@ -178,15 +177,15 @@ Note: By default, the library preserves area codes in phone numbers for better u
 
 ## Data Variety
 
-The library provides rich anonymization with:
+The replacement tables contain:
 
 - 110+ gender-neutral first names
-- 130+ diverse last names
+- 130+ last names
 - 105+ fictional email domains
 - 100+ email username patterns
 - 120+ street name variations with international formats
 
-This extensive variety of replacement options enhances privacy by increasing the anonymization space and reducing the likelihood of pattern recognition.
+A larger replacement space reduces the likelihood that patterns in the output can be traced back to the original values.
 
 ## International Support
 
@@ -258,7 +257,7 @@ go tool pprof mem.prof
 
 #### Interactive Web UI
 
-The most powerful way to analyze profiles is using pprof's built-in web server, which provides an interactive visualization:
+pprof's built-in web server provides an interactive visualization of a profile:
 
 ```bash
 # Start interactive web UI for CPU profile (opens browser automatically)
