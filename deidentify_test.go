@@ -826,3 +826,221 @@ func BenchmarkSlicesDeidentification(b *testing.B) {
 		}
 	}
 }
+
+func TestNameMethod(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	original := "Frodo Baggins"
+	result, err := d.Name(original)
+	if err != nil {
+		t.Fatalf("Name failed: %v", err)
+	}
+	if result == original {
+		t.Errorf("Name should be anonymized, got the original value: %s", result)
+	}
+	if !regexp.MustCompile(`^[A-Za-z]+ [A-Za-z]+$`).MatchString(result) {
+		t.Errorf("Name result %q doesn't look like a first/last name pair", result)
+	}
+
+	// The same input must map to the same replacement.
+	again, err := d.Name(original)
+	if err != nil {
+		t.Fatalf("Name failed on second call: %v", err)
+	}
+	if again != result {
+		t.Errorf("Name is not deterministic: got %q then %q", result, again)
+	}
+}
+
+func TestCreditCardMethod(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	original := "4111-1111-1111-1111"
+	result, err := d.CreditCard(original)
+	if err != nil {
+		t.Fatalf("CreditCard failed: %v", err)
+	}
+	if result == original {
+		t.Errorf("CreditCard should be anonymized, got the original value: %s", result)
+	}
+
+	digits := regexp.MustCompile(`\D`).ReplaceAllString(result, "")
+	if len(digits) != 16 {
+		t.Errorf("Expected 16 digits, got %d in %q", len(digits), result)
+	}
+	if !isValidLuhn(digits) {
+		t.Errorf("Generated card %q fails the Luhn checksum", result)
+	}
+}
+
+func TestAddressMethod(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	// Each input exercises a different branch of Address: the three special
+	// international patterns and the standard fallback. The "labeled" variants
+	// carry a "Label:" prefix that must be preserved in the output.
+	testCases := []struct {
+		name    string
+		address string
+		label   string
+	}{
+		{"special pattern 1", "123 Orchard Road, Singapore", ""},
+		{"special pattern 2", "10 Grande Rue de Rivoli, Paris, France", ""},
+		{"special pattern 3", "at 123 Main Street", ""},
+		{"standard fallback", "1 Bagshot Row", ""},
+		{"labeled pattern 1", "Asia office: 123 Orchard Road, Singapore", "Asia office:"},
+		{"labeled pattern 2", "Europe HQ: 10 Grande Rue de Rivoli, Paris, France", "Europe HQ:"},
+		{"labeled pattern 3", "Note: at 123 Main Street", "Note:"},
+		{"labeled fallback", "Home: 1 Bagshot Row", "Home:"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := d.Address(tc.address)
+			if err != nil {
+				t.Fatalf("Address failed: %v", err)
+			}
+			if result == tc.address {
+				t.Errorf("Address should be anonymized, got the original value: %s", result)
+			}
+			if tc.label != "" && !strings.HasPrefix(result, tc.label+" ") {
+				t.Errorf("Expected label %q to be preserved, got %q", tc.label, result)
+			}
+		})
+	}
+}
+
+func TestClearMappings(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	original := "test@example.com"
+	if _, err := d.Email(original); err != nil {
+		t.Fatalf("Email failed: %v", err)
+	}
+	if d.getMapping("email", original) == "" {
+		t.Fatal("Expected a stored mapping after deidentifying a value")
+	}
+
+	d.ClearMappings()
+
+	if mapped := d.getMapping("email", original); mapped != "" {
+		t.Errorf("Expected mappings to be cleared, still found %q", mapped)
+	}
+}
+
+func TestGenerateGeneric(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	result := d.generateGeneric("some-unstructured-value")
+	if !regexp.MustCompile(`^DATA_[0-9a-f]{16}$`).MatchString(result) {
+		t.Errorf("Generic result %q doesn't match the DATA_<hex> format", result)
+	}
+	if result != d.generateGeneric("some-unstructured-value") {
+		t.Error("generateGeneric should be deterministic")
+	}
+	if result == d.generateGeneric("a-different-value") {
+		t.Error("Different inputs should produce different generic values")
+	}
+
+	// An unrecognized DataType falls through to the generic replacement.
+	viaSwitch, err := d.deidentifyValue("value", DataType(99), "column")
+	if err != nil {
+		t.Fatalf("deidentifyValue failed: %v", err)
+	}
+	if !strings.HasPrefix(viaSwitch, "DATA_") {
+		t.Errorf("Unknown DataType should produce a generic value, got %q", viaSwitch)
+	}
+}
+
+func TestGeneratePhoneFallback(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	// A string the phone format regex cannot parse falls back to generic data.
+	result := d.generatePhone("12")
+	if !strings.HasPrefix(result, "DATA_") {
+		t.Errorf("Expected a generic fallback for an unparseable phone, got %q", result)
+	}
+}
+
+func TestHashToIndexEdgeCases(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	if got := d.hashToIndex(nil, 10); got != 0 {
+		t.Errorf("Expected 0 for empty hash bytes, got %d", got)
+	}
+	if got := d.hashToIndex([]byte{}, 10); got != 0 {
+		t.Errorf("Expected 0 for empty hash bytes, got %d", got)
+	}
+	if got := d.hashToIndex([]byte{1, 2, 3}, 0); got != 0 {
+		t.Errorf("Expected 0 for a zero max, got %d", got)
+	}
+	if got := d.hashToIndex([]byte{1, 2, 3}, -5); got != 0 {
+		t.Errorf("Expected 0 for a negative max, got %d", got)
+	}
+
+	// Valid input must stay within [0, max).
+	hash := d.deterministicHash("value")
+	for range 100 {
+		if got := d.hashToIndex(hash[:8], 7); got < 0 || got >= 7 {
+			t.Fatalf("Index %d out of range [0,7)", got)
+		}
+	}
+}
+
+func TestInferColumnTypesEmptyData(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	types, err := d.inferColumnTypes([][]string{})
+	if err != nil {
+		t.Fatalf("inferColumnTypes failed: %v", err)
+	}
+	if len(types) != 0 {
+		t.Errorf("Expected no column types for empty data, got %d", len(types))
+	}
+}
+
+func TestEmptyValueHandling(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	result, err := d.deidentifyValue("", TypeEmail, "email")
+	if err != nil {
+		t.Fatalf("deidentifyValue failed: %v", err)
+	}
+	if result != "" {
+		t.Errorf("Expected an empty string to pass through unchanged, got %q", result)
+	}
+
+	text, err := d.Text("")
+	if err != nil {
+		t.Fatalf("Text failed: %v", err)
+	}
+	if text != "" {
+		t.Errorf("Expected empty text to pass through unchanged, got %q", text)
+	}
+}
+
+func TestTextWithInternationalAddresses(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+
+	// Exercises the special international address patterns inside Text.
+	testCases := []struct {
+		name    string
+		text    string
+		wantOut string
+	}{
+		{"country-suffixed address", "The office is 123 Orchard Road, Singapore today.", "123 Orchard Road"},
+		{"city and country address", "Ship to 10 Grande Rue de Rivoli, Paris, France now.", "Grande Rue de Rivoli"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := d.Text(tc.text)
+			if err != nil {
+				t.Fatalf("Text failed: %v", err)
+			}
+			if strings.Contains(result, tc.wantOut) {
+				t.Errorf("Expected %q to be removed from the output, got %q", tc.wantOut, result)
+			}
+		})
+	}
+}

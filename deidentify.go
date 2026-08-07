@@ -13,35 +13,53 @@ import (
 	"sync"
 )
 
-// DataType represents the type of personally identifiable information
+// DataType represents the type of personally identifiable information held by
+// a value, and determines which replacement strategy is applied to it.
 type DataType int
 
+// The PII types recognized by this package. Each type has a replacement
+// strategy that preserves the format of the original value.
 const (
+	// TypeName is a personal name, replaced with a generated first and last name.
 	TypeName DataType = iota
+	// TypeEmail is an email address, replaced with a generated address at a fictional domain.
 	TypeEmail
+	// TypePhone is a phone number, replaced while preserving punctuation and area code.
 	TypePhone
+	// TypeSSN is a US Social Security number, replaced with a structurally valid number.
 	TypeSSN
+	// TypeCreditCard is a credit card number, replaced with a number that passes the Luhn check.
 	TypeCreditCard
+	// TypeAddress is a street address, replaced with a generated street number and name.
 	TypeAddress
+	// TypeGeneric marks a value with no detected PII. Such values are returned unchanged.
 	TypeGeneric
 )
 
-// Column represents a single column in a table with its data type and values
+// Column represents a single column in a [Table]: its name, the type of PII it
+// holds, and its values. The name is used as replacement context, so identical
+// values in differently named columns receive different replacements.
 type Column struct {
-	Name     string
+	// Name identifies the column and scopes its replacement mappings.
+	Name string
+	// DataType is the kind of PII stored in this column.
 	DataType DataType
-	Values   []interface{}
+	// Values holds the column's cells. A nil element is passed through as nil.
+	Values []interface{}
 }
 
-// Deidentifier handles the deidentification of PII data
+// Deidentifier replaces PII with deterministic, format-preserving substitutes.
+// Create one with [NewDeidentifier]. A Deidentifier is safe for concurrent use
+// by multiple goroutines.
 type Deidentifier struct {
 	secretKey     []byte
 	mappingTables map[string]map[string]string
 	mutex         sync.RWMutex
 }
 
-// Table represents a collection of columns
+// Table represents column-oriented data to be deidentified as a unit.
 type Table struct {
+	// Columns are the table's columns, each carrying its own data type.
 	Columns []Column
 }
 
@@ -63,7 +81,10 @@ type slicesConfig struct {
 	numCols     int
 }
 
-// Address is a convenience method to deidentify a single address
+// Address deidentifies a single street address, replacing it with a generated
+// street number and name. It recognizes international address formats and
+// preserves a leading label, so "Europe HQ: 10 Rue de Rivoli, Paris, France"
+// keeps its "Europe HQ:" prefix.
 func (d *Deidentifier) Address(address string) (string, error) {
 	// Check for a label prefix (like "European HQ:") and extract the actual address part
 	address = strings.TrimSpace(address)
@@ -129,45 +150,62 @@ func (d *Deidentifier) Address(address string) (string, error) {
 	return deidentified, nil
 }
 
-// ClearMappings clears all stored mappings (useful for testing)
+// ClearMappings discards every stored value-to-replacement mapping. Because
+// replacements are derived from the secret key, clearing does not change what
+// a given input maps to; it only frees the accumulated mapping tables.
 func (d *Deidentifier) ClearMappings() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.mappingTables = make(map[string]map[string]string)
 }
 
-// CreditCard is a convenience method to deidentify a single credit card number
+// CreditCard deidentifies a single credit card number. The replacement is a
+// 16-digit test number that passes the Luhn checksum.
 func (d *Deidentifier) CreditCard(cc string) (string, error) {
 	return d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 }
 
-// Email is a convenience method to deidentify a single email
+// Email deidentifies a single email address, replacing it with a generated
+// address at a fictional domain.
 func (d *Deidentifier) Email(email string) (string, error) {
 	return d.deidentifyValue(email, TypeEmail, "email")
 }
 
-// Name is a convenience method to deidentify a single name
+// Name deidentifies a single personal name, replacing it with a generated
+// first and last name.
 func (d *Deidentifier) Name(name string) (string, error) {
 	return d.deidentifyValue(name, TypeName, "name")
 }
 
-// Phone is a convenience method to deidentify a single phone number
+// Phone deidentifies a single phone number, preserving its punctuation and
+// area code. Input that cannot be parsed as a phone number is replaced with an
+// opaque generic value.
 func (d *Deidentifier) Phone(phone string) (string, error) {
 	return d.deidentifyValue(phone, TypePhone, "phone")
 }
 
-// SSN is a convenience method to deidentify a single SSN
+// SSN deidentifies a single US Social Security number, replacing it with a
+// structurally valid number in AAA-GG-SSSS form.
 func (d *Deidentifier) SSN(ssn string) (string, error) {
 	return d.deidentifyValue(ssn, TypeSSN, "ssn")
 }
 
-// Slices processes a slice of string slices ([][]string)
-// Each inner slice represents a row of data
-// Optional parameters:
-//   - columnTypes: DataType for each column (will infer if not provided)
-//   - columnNames: names for each column (will generate if not provided)
+// Slices deidentifies CSV-like data, where each inner slice is a row. It
+// returns a new [][]string of the same shape; empty cells are left empty.
 //
-// Usage: Slices(data) or Slices(data, columnTypes) or Slices(data, columnTypes, columnNames)
+// Two optional arguments may follow data, in order:
+//
+//   - columnTypes ([]DataType): the type of each column. When omitted, the
+//     type of every column is inferred by sampling its values.
+//   - columnNames ([]string): the name of each column, used as replacement
+//     context. When omitted, names of the form "column_0" are generated.
+//
+// Both must have one entry per column, or Slices returns an error. Passing an
+// argument of any other type is also an error.
+//
+//	d.Slices(data)
+//	d.Slices(data, columnTypes)
+//	d.Slices(data, columnTypes, columnNames)
 func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]string, error) {
 	if len(data) == 0 {
 		return [][]string{}, nil
@@ -181,7 +219,9 @@ func (d *Deidentifier) Slices(data [][]string, optional ...interface{}) ([][]str
 	return d.processSliceData(data, config)
 }
 
-// Table processes an entire table
+// Table deidentifies every column of a table according to its declared
+// [DataType], returning a new [Table] and leaving the input untouched. Nil
+// values are preserved as nil.
 func (d *Deidentifier) Table(table *Table) (*Table, error) {
 	result := &Table{
 		Columns: make([]Column, len(table.Columns)),
@@ -214,7 +254,10 @@ func (d *Deidentifier) Table(table *Table) (*Table, error) {
 	return result, nil
 }
 
-// Text identifies and deidentifies PII from a text string
+// Text finds and replaces PII in free-form text, returning the redacted text.
+// It detects email addresses, phone numbers, Social Security numbers, credit
+// card numbers, names, and street addresses. Detection is pattern-based and is
+// not guaranteed to be exhaustive.
 func (d *Deidentifier) Text(text string) (string, error) {
 	if text == "" {
 		return "", nil
@@ -233,7 +276,11 @@ func (d *Deidentifier) Text(text string) (string, error) {
 	return result, nil
 }
 
-// GenerateSecretKey generates a cryptographically secure random key
+// GenerateSecretKey returns a cryptographically secure random 256-bit key,
+// hex-encoded, suitable for passing to [NewDeidentifier].
+//
+// Store the key if you need replacements to stay consistent across runs:
+// deidentifying the same data with a different key produces different output.
 func GenerateSecretKey() (string, error) {
 	key := make([]byte, 32)
 	_, err := rand.Read(key)
@@ -243,7 +290,9 @@ func GenerateSecretKey() (string, error) {
 	return hex.EncodeToString(key), nil
 }
 
-// NewDeidentifier creates a new deidentifier with a secret key
+// NewDeidentifier returns a [Deidentifier] that derives its replacements from
+// secretKey. Use [GenerateSecretKey] to create one, and reuse the same key
+// whenever deidentified values must match across runs or datasets.
 func NewDeidentifier(secretKey string) *Deidentifier {
 	return &Deidentifier{
 		secretKey:     []byte(secretKey),

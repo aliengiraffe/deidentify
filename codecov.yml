@@ -1,0 +1,21 @@
+# Coverage is measured against the library itself. The programs under
+# examples/ are documentation that is compiled but not exercised by tests, so
+# including them would understate the coverage of the package.
+ignore:
+  - "examples/**"
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+comment:
+  layout: "reach, diff, files"
+  behavior: default
+  require_changes: false

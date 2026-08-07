@@ -8,13 +8,18 @@ This project follows standard Go package conventions:
 
 ```
 deidentify/
+├── doc.go              # Package documentation
 ├── deidentify.go       # Main package implementation
+├── data.go             # Replacement value tables (names, domains, streets)
+├── patterns.go         # Regular expressions used for PII detection
 ├── deidentify_test.go  # Package tests
-├── examples/           # Example usages
-│   ├── basic/
-│   │   └── main.go     # Simple text deidentification example
-│   └── table/
-│       └── main.go     # Table-based deidentification example
+├── example_test.go     # Runnable godoc examples
+├── benchmark_test.go   # Performance benchmarks
+├── examples/           # Example programs
+│   ├── basic/          # Simple text deidentification
+│   ├── table/          # Table-based deidentification
+│   ├── slices/         # CSV-like [][]string deidentification
+│   └── international/  # International address handling
 └── go.mod              # Module definition
 ```
 
@@ -43,14 +48,29 @@ The package exposes types and functions following Go's idiomatic practices:
 
 ### Core Types
 
-- `Deidentifier`: Interface for objects that can identify and redact PII
-- `Option`: Functional options for configuring deidentification behavior
+- `Deidentifier`: Replaces PII with deterministic, format-preserving substitutes. Safe for concurrent use.
+- `DataType`: The kind of PII a value holds (`TypeName`, `TypeEmail`, `TypePhone`, `TypeSSN`, `TypeCreditCard`, `TypeAddress`, `TypeGeneric`)
+- `Table` / `Column`: Column-oriented data to deidentify as a unit
 
-### Main Functions
+### Constructors
 
-- `New(options ...Option) *Deidentifier`: Creates a new deidentifier with specified options
-- `Deidentify(text string) (string, error)`: Processes text, returning a deidentified version
-- `DeidentifyBytes(data []byte) ([]byte, error)`: Processes byte data for binary-safe operations
+- `GenerateSecretKey() (string, error)`: Returns a hex-encoded 256-bit random key
+- `NewDeidentifier(secretKey string) *Deidentifier`: Creates a deidentifier bound to a secret key
+
+### Main Methods
+
+- `Text(text string) (string, error)`: Finds and replaces PII in free-form text
+- `Table(table *Table) (*Table, error)`: Deidentifies column-oriented data by declared type
+- `Slices(data [][]string, optional ...interface{}) ([][]string, error)`: Deidentifies CSV-like data, inferring column types when not supplied
+
+### Single-value Methods
+
+`Name`, `Email`, `Phone`, `SSN`, `CreditCard`, and `Address` each deidentify one
+value of a known type, returning `(string, error)`. `ClearMappings()` discards
+the accumulated mapping tables.
+
+Replacements are deterministic: the same input and secret key always produce the
+same output, which preserves referential integrity across records and runs.
 
 ## Development Guidelines
 
