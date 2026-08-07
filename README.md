@@ -5,6 +5,7 @@
 [![Build & Test](https://github.com/aliengiraffe/deidentify/actions/workflows/go.yml/badge.svg)](https://github.com/aliengiraffe/deidentify/actions/workflows/go.yml)
 [![Version](https://img.shields.io/github/v/release/aliengiraffe/deidentify.svg)](https://github.com/aliengiraffe/deidentify/releases)
 [![License](https://img.shields.io/github/license/aliengiraffe/deidentify.svg)](LICENSE)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/avelino/awesome-go)
 
 A Go library for detecting and removing personally identifiable information (PII) from text and structured data.
 
