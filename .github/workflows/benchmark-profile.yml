@@ -162,14 +162,24 @@ jobs:
           const cpuTop20 = fs.readFileSync('profiles/cpu_top20.txt', 'utf8');
           const memTop20 = fs.readFileSync('profiles/mem_top20.txt', 'utf8');
           
-          // Extract key metrics from benchmark output
-          const throughputMatch = benchmarkResults.match(/Throughput: ([\d.]+) paragraphs\/second/);
-          const meanTimeMatch = benchmarkResults.match(/Mean time per paragraph: ([\d.]+\w+)/);
+          // Extract the mean time per operation from the standard `go test -bench` output,
+          // then derive throughput and a human-readable mean time from it. Go's benchmark
+          // output never contains literal "Throughput:" or "Mean time per paragraph:" text,
+          // so those values must be computed rather than matched.
           const nsOpMatch = benchmarkResults.match(/BenchmarkParagraphDeidentification.*?\s+([\d.]+) ns\/op/);
-          
-          const throughput = throughputMatch ? throughputMatch[1] : 'N/A';
-          const meanTime = meanTimeMatch ? meanTimeMatch[1] : 'N/A';
-          const nsOp = nsOpMatch ? nsOpMatch[1] : 'N/A';
+          const nsOp = nsOpMatch ? parseFloat(nsOpMatch[1]) : NaN;
+
+          let throughput = 'N/A';
+          let meanTime = 'N/A';
+          if (!isNaN(nsOp) && nsOp > 0) {
+            throughput = (1e9 / nsOp).toFixed(2);
+            meanTime = nsOp >= 1e6
+              ? `${(nsOp / 1e6).toFixed(2)} ms`
+              : nsOp >= 1e3
+                ? `${(nsOp / 1e3).toFixed(2)} µs`
+                : `${nsOp.toFixed(2)} ns`;
+          }
+          const nsOpDisplay = nsOpMatch ? nsOpMatch[1] : 'N/A';
           
           // Get artifact URLs
           const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
@@ -187,7 +197,7 @@ jobs:
             '### Performance Summary',
             `- **Throughput**: ${throughput} paragraphs/second`,
             `- **Mean time per paragraph**: ${meanTime}`,
-            `- **Nanoseconds per operation**: ${nsOp} ns/op`,
+            `- **Nanoseconds per operation**: ${nsOpDisplay} ns/op`,
             '',
             '### 🔍 Interactive Profile Visualizations',
             '',
@@ -269,11 +279,18 @@ jobs:
         echo "## Benchmark & Profile Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # Extract and display key metrics
-        if grep -q "Throughput:" profiles/benchmark.txt; then
+        # Derive throughput and mean time per paragraph from the ns/op value in the
+        # standard `go test -bench` output (that output never contains literal
+        # "Throughput:" or "Mean time per paragraph:" text, so it must be computed).
+        NS_OP=$(awk '/BenchmarkParagraphDeidentification/ && /ns\/op/ {for (i = 1; i <= NF; i++) if ($i == "ns/op") print $(i - 1); exit}' profiles/benchmark.txt)
+        if [ -n "$NS_OP" ]; then
           echo "### Performance Metrics" >> $GITHUB_STEP_SUMMARY
-          grep "Throughput:" profiles/benchmark.txt >> $GITHUB_STEP_SUMMARY
-          grep "Mean time per paragraph:" profiles/benchmark.txt >> $GITHUB_STEP_SUMMARY
+          awk -v ns="$NS_OP" 'BEGIN { printf "- **Throughput**: %.2f paragraphs/second\n", 1000000000 / ns }' >> $GITHUB_STEP_SUMMARY
+          awk -v ns="$NS_OP" 'BEGIN {
+            if (ns >= 1000000) printf "- **Mean time per paragraph**: %.2f ms\n", ns / 1000000;
+            else if (ns >= 1000) printf "- **Mean time per paragraph**: %.2f µs\n", ns / 1000;
+            else printf "- **Mean time per paragraph**: %.2f ns\n", ns;
+          }' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
         fi
         
