@@ -1,5 +1,7 @@
 package deidentify
 
+import "regexp"
+
 // Regular expression patterns for finding PII
 var (
 	// Email pattern
@@ -10,10 +12,11 @@ var (
 	phoneFormatRegexPattern = `^(\+?1?\s?)?(\(?)(\d{3})(\)?[\s.-]?)(\d{3})([\s.-]?)(\d{4})`
 
 	// SSN patterns
-	ssnRegexPattern        = `\d{3}[- ]?\d{2}[- ]?\d{4}`
-	ssnSpaceRegexPattern   = `[ ]`
-	ssnHyphenRegexPattern  = `[-]`
-	ssnContextRegexPattern = `(?i)SSN|social security`
+	ssnRegexPattern         = `\d{3}[- ]?\d{2}[- ]?\d{4}`
+	ssnSpaceRegexPattern    = `[ ]`
+	ssnHyphenRegexPattern   = `[-]`
+	ssnContextRegexPattern  = `(?i)SSN|social security`
+	ssnNonDigitRegexPattern = `[^0-9]`
 
 	// Credit card pattern
 	creditCardRegexPattern = `\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}`
@@ -45,4 +48,35 @@ var (
 
 	// Main address pattern to capture common formats across multiple countries
 	addressRegexPattern = `(?i)(\d+[-\s]?\w*|\d+-\d+-\d+)[\s,]+([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*[\s,]+)+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way|Plaza|Square|Sq|Court|Ct|Terrace|Ter|Circle|Cir|Alley|Row|Highway|Hwy|Parkway|Pkwy|Path|Trail|Tr|Crescent|Cres|Rue|Strasse|Straße|Calle|Via|Viale|Avenida|Carrer|Straat|Gasse|Weg|Camino|Ulica|Utca|Prospekt|Dori|Jalan|Marg|Dao|Jie|Lu|út|de la|del|di|van|von)(\s*,\s*|\s+)([A-Za-z\p{L}]+([\s'-][A-Za-z\p{L}]+)*)?(\s*,\s*|\s+)?(` + isoCountryCodeRegexPattern + `|` + countryNameRegexPattern + `)?`
+
+	// Context address pattern for addresses introduced by contextual clues (e.g. "lives at 123 Main Street")
+	contextAddressRegexPattern = `(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`
+)
+
+// Compiled regular expressions, built once at package load time and reused
+// across all calls instead of being recompiled per invocation.
+var (
+	emailRegex       = regexp.MustCompile(emailRegexPattern)
+	phoneRegex       = regexp.MustCompile(phoneRegexPattern)
+	phoneFormatRegex = regexp.MustCompile(phoneFormatRegexPattern)
+
+	ssnRegex         = regexp.MustCompile(ssnRegexPattern)
+	ssnSpaceRegex    = regexp.MustCompile(ssnSpaceRegexPattern)
+	ssnHyphenRegex   = regexp.MustCompile(ssnHyphenRegexPattern)
+	ssnContextRegex  = regexp.MustCompile(ssnContextRegexPattern)
+	ssnNonDigitRegex = regexp.MustCompile(ssnNonDigitRegexPattern)
+
+	creditCardRegex = regexp.MustCompile(creditCardRegexPattern)
+
+	nameRegex = regexp.MustCompile(nameRegexPattern)
+
+	addressWordRegex            = regexp.MustCompile(addressWordRegexPattern)
+	internationalAddressRegex   = regexp.MustCompile(internationalAddressRegexPattern)
+	countryNameRegex            = regexp.MustCompile(countryNameRegexPattern)
+	cityRegex                   = regexp.MustCompile(cityRegexPattern)
+	specialAddressPattern1Regex = regexp.MustCompile(specialAddressPattern1)
+	specialAddressPattern2Regex = regexp.MustCompile(specialAddressPattern2)
+	specialAddressPattern3Regex = regexp.MustCompile(specialAddressPattern3)
+	addressRegex                = regexp.MustCompile(addressRegexPattern)
+	contextAddressRegex         = regexp.MustCompile(contextAddressRegexPattern)
 )
