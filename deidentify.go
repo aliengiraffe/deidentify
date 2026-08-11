@@ -95,8 +95,7 @@ func (d *Deidentifier) Address(address string) (string, error) {
 	}
 
 	// First try the special address patterns
-	specialAddr1Regex := regexp.MustCompile(specialAddressPattern1)
-	if specialAddr1Regex.MatchString(actualAddr) {
+	if specialAddressPattern1Regex.MatchString(actualAddr) {
 		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
 		if err != nil {
 			return "", err
@@ -109,8 +108,7 @@ func (d *Deidentifier) Address(address string) (string, error) {
 		return deidentified, nil
 	}
 
-	specialAddr2Regex := regexp.MustCompile(specialAddressPattern2)
-	if specialAddr2Regex.MatchString(actualAddr) {
+	if specialAddressPattern2Regex.MatchString(actualAddr) {
 		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
 		if err != nil {
 			return "", err
@@ -123,8 +121,7 @@ func (d *Deidentifier) Address(address string) (string, error) {
 		return deidentified, nil
 	}
 
-	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
-	if specialAddr3Regex.MatchString(actualAddr) {
+	if specialAddressPattern3Regex.MatchString(actualAddr) {
 		deidentified, err := d.deidentifyValue(actualAddr, TypeAddress, "address")
 		if err != nil {
 			return "", err
@@ -323,16 +320,16 @@ func (d *Deidentifier) calculateLuhnCheckDigit(cardNumber string) int {
 	return (10 - (sum % 10)) % 10
 }
 
-// compilePatterns compiles all regex patterns once for efficiency
+// compilePatterns returns the shared compiled regex patterns used for column-type inference
 func (d *Deidentifier) compilePatterns() *patternSet {
 	return &patternSet{
-		email:       regexp.MustCompile(emailRegexPattern),
-		phone:       regexp.MustCompile(phoneRegexPattern),
-		ssn:         regexp.MustCompile(ssnRegexPattern),
-		creditCard:  regexp.MustCompile(creditCardRegexPattern),
-		name:        regexp.MustCompile(nameRegexPattern),
-		address:     regexp.MustCompile(addressRegexPattern),
-		addressWord: regexp.MustCompile(addressWordRegexPattern),
+		email:       emailRegex,
+		phone:       phoneRegex,
+		ssn:         ssnRegex,
+		creditCard:  creditCardRegex,
+		name:        nameRegex,
+		address:     addressRegex,
+		addressWord: addressWordRegex,
 	}
 }
 
@@ -462,8 +459,7 @@ func (d *Deidentifier) generateName(original string) string {
 // generatePhone creates a deterministic fake phone number preserving format
 func (d *Deidentifier) generatePhone(original string) string {
 	// Extract format and components
-	phoneRegex := regexp.MustCompile(phoneFormatRegexPattern)
-	matches := phoneRegex.FindStringSubmatch(original)
+	matches := phoneFormatRegex.FindStringSubmatch(original)
 
 	if len(matches) == 0 {
 		// Fallback for non-standard formats
@@ -584,14 +580,9 @@ func (d *Deidentifier) initializeTypeScores() map[DataType]int {
 
 // isAddressContext checks if a name candidate is actually part of an address
 func (d *Deidentifier) isAddressContext(name string) bool {
-	addressWordRegex := regexp.MustCompile(addressWordRegexPattern)
-	internationalAddressRegex := regexp.MustCompile(internationalAddressRegexPattern)
-	countryRegex := regexp.MustCompile(countryNameRegexPattern)
-	cityRegex := regexp.MustCompile(cityRegexPattern)
-
 	return addressWordRegex.MatchString(name) ||
 		internationalAddressRegex.MatchString(name) ||
-		countryRegex.MatchString(name) ||
+		countryNameRegex.MatchString(name) ||
 		cityRegex.MatchString(name)
 }
 
@@ -644,9 +635,8 @@ func (d *Deidentifier) parseSlicesParameters(data [][]string, optional ...interf
 
 // processContextAddresses handles addresses with contextual clues
 func (d *Deidentifier) processContextAddresses(text string) string {
-	contextAddressPattern := regexp.MustCompile(`(?i)(lives at|located at|resides at|found at|situated at|at address|address is|at location|based at) (\d+[^\n\.]*?(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Place|Pl|Boulevard|Blvd|Way)[^\n\.]*)`)
-	return contextAddressPattern.ReplaceAllStringFunc(text, func(match string) string {
-		parts := contextAddressPattern.FindStringSubmatch(match)
+	return contextAddressRegex.ReplaceAllStringFunc(text, func(match string) string {
+		parts := contextAddressRegex.FindStringSubmatch(match)
 		if len(parts) < 3 {
 			return match
 		}
@@ -665,8 +655,7 @@ func (d *Deidentifier) processContextAddresses(text string) string {
 
 // processCreditCards handles credit card deidentification
 func (d *Deidentifier) processCreditCards(text string) string {
-	ccRegex := regexp.MustCompile(creditCardRegexPattern)
-	return ccRegex.ReplaceAllStringFunc(text, func(cc string) string {
+	return creditCardRegex.ReplaceAllStringFunc(text, func(cc string) string {
 		deidentified, err := d.deidentifyValue(cc, TypeCreditCard, "credit_card")
 		if err != nil {
 			return "[CC REDACTION ERROR]"
@@ -677,7 +666,6 @@ func (d *Deidentifier) processCreditCards(text string) string {
 
 // processEmails handles email deidentification
 func (d *Deidentifier) processEmails(text string) string {
-	emailRegex := regexp.MustCompile(emailRegexPattern)
 	return emailRegex.ReplaceAllStringFunc(text, func(email string) string {
 		deidentified, err := d.deidentifyValue(email, TypeEmail, "email")
 		if err != nil {
@@ -689,7 +677,6 @@ func (d *Deidentifier) processEmails(text string) string {
 
 // processNames handles name deidentification with address context checking
 func (d *Deidentifier) processNames(text string) string {
-	nameRegex := regexp.MustCompile(nameRegexPattern)
 	return nameRegex.ReplaceAllStringFunc(text, func(name string) string {
 		if d.isAddressContext(name) {
 			return name
@@ -705,7 +692,6 @@ func (d *Deidentifier) processNames(text string) string {
 
 // processPhones handles phone number deidentification
 func (d *Deidentifier) processPhones(text string) string {
-	phoneRegex := regexp.MustCompile(phoneRegexPattern)
 	return phoneRegex.ReplaceAllStringFunc(text, func(phone string) string {
 		deidentified, err := d.deidentifyValue(phone, TypePhone, "phone")
 		if err != nil {
@@ -753,9 +739,8 @@ func (d *Deidentifier) processSliceRow(row []string, config *slicesConfig, rowIn
 }
 
 // processSpecialAddressPattern handles a single special address pattern
-func (d *Deidentifier) processSpecialAddressPattern(text, pattern string) string {
-	regex := regexp.MustCompile(pattern)
-	return regex.ReplaceAllStringFunc(text, func(addr string) string {
+func (d *Deidentifier) processSpecialAddressPattern(text string, pattern *regexp.Regexp) string {
+	return pattern.ReplaceAllStringFunc(text, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
 		if err != nil {
 			return "[ADDRESS REDACTION ERROR]"
@@ -766,8 +751,7 @@ func (d *Deidentifier) processSpecialAddressPattern(text, pattern string) string
 
 // processSpecialAddressPattern3 handles special address pattern 3 with prefix handling
 func (d *Deidentifier) processSpecialAddressPattern3(text string) string {
-	specialAddr3Regex := regexp.MustCompile(specialAddressPattern3)
-	return specialAddr3Regex.ReplaceAllStringFunc(text, func(addr string) string {
+	return specialAddressPattern3Regex.ReplaceAllStringFunc(text, func(addr string) string {
 		parts := strings.SplitN(addr, " ", 2)
 		if len(parts) < 2 {
 			return addr
@@ -787,19 +771,15 @@ func (d *Deidentifier) processSpecialAddressPattern3(text string) string {
 
 // processSpecialAddresses handles special address patterns
 func (d *Deidentifier) processSpecialAddresses(text string) string {
-	text = d.processSpecialAddressPattern(text, specialAddressPattern1)
-	text = d.processSpecialAddressPattern(text, specialAddressPattern2)
+	text = d.processSpecialAddressPattern(text, specialAddressPattern1Regex)
+	text = d.processSpecialAddressPattern(text, specialAddressPattern2Regex)
 	text = d.processSpecialAddressPattern3(text)
 	return text
 }
 
 // processSSNMatch processes a single SSN match with validation
 func (d *Deidentifier) processSSNMatch(ssn, originalText string) string {
-	ssnHyphenRegex := regexp.MustCompile(ssnHyphenRegexPattern)
-	ssnSpaceRegex := regexp.MustCompile(ssnSpaceRegexPattern)
-	ssnContextRegex := regexp.MustCompile(ssnContextRegexPattern)
-
-	rawDigits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(ssn, "")
+	rawDigits := ssnNonDigitRegex.ReplaceAllString(ssn, "")
 	isFormatted := ssnHyphenRegex.MatchString(ssn) || ssnSpaceRegex.MatchString(ssn)
 	hasSSNContext := ssnContextRegex.MatchString(originalText)
 
@@ -816,7 +796,6 @@ func (d *Deidentifier) processSSNMatch(ssn, originalText string) string {
 
 // processSSNs handles SSN deidentification with context checking
 func (d *Deidentifier) processSSNs(text, originalText string) string {
-	ssnRegex := regexp.MustCompile(ssnRegexPattern)
 	return ssnRegex.ReplaceAllStringFunc(text, func(ssn string) string {
 		return d.processSSNMatch(ssn, originalText)
 	})
@@ -824,8 +803,7 @@ func (d *Deidentifier) processSSNs(text, originalText string) string {
 
 // processStandardAddresses handles standard address patterns
 func (d *Deidentifier) processStandardAddresses(text string) string {
-	addrRegex := regexp.MustCompile(addressRegexPattern)
-	return addrRegex.ReplaceAllStringFunc(text, func(addr string) string {
+	return addressRegex.ReplaceAllStringFunc(text, func(addr string) string {
 		deidentified, err := d.deidentifyValue(addr, TypeAddress, "address")
 		if err != nil {
 			return "[ADDRESS REDACTION ERROR]"

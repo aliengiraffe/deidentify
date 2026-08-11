@@ -1,8 +1,10 @@
 package deidentify
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -369,6 +371,49 @@ func TestText(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTextRepeatedAndConcurrentCalls(t *testing.T) {
+	d := NewDeidentifier("test-secret-key")
+	input := "John Smith (john.smith@example.com) lives at 123 Oak Avenue and his SSN is 123-45-6789."
+
+	want, err := d.Text(input)
+	if err != nil {
+		t.Fatalf("Text() error = %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		got, err := d.Text(input)
+		if err != nil {
+			t.Fatalf("Text() error on repeated call %d: %v", i, err)
+		}
+		if got != want {
+			t.Fatalf("Text() call %d returned %q, want %q", i, got, want)
+		}
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 50)
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err := d.Text(input)
+			if err != nil {
+				errs <- err
+				return
+			}
+			if got != want {
+				errs <- fmt.Errorf("concurrent Text() returned %q, want %q", got, want)
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Error(err)
 	}
 }
 
